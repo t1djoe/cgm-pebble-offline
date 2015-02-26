@@ -5,6 +5,7 @@
 
 Window *window_cgm = NULL;
 
+TextLayer *tophalf_layer = NULL;
 TextLayer *bg_layer = NULL;
 TextLayer *cgmtime_layer = NULL;
 TextLayer *message_layer = NULL;    // BG DELTA & MESSAGE LAYER
@@ -13,6 +14,7 @@ TextLayer *t1dname_layer = NULL;
 TextLayer *time_watch_layer = NULL;
 TextLayer *time_app_layer = NULL;
 TextLayer *date_app_layer = NULL;
+TextLayer *battery_layer = NULL;
 
 BitmapLayer *icon_layer = NULL;
 BitmapLayer *cgmicon_layer = NULL;
@@ -149,23 +151,6 @@ static const uint8_t HIGH_SNZ_MIN = 30;
 static const uint8_t MIDHIGH_SNZ_MIN = 30;
 static const uint8_t BIGHIGH_SNZ_MIN = 30;
   
-// Vibration Levels; 0 = NONE; 1 = LOW; 2 = MEDIUM; 3 = HIGH
-// IF YOU DO NOT WANT A SPECIFIC VIBRATION, SET TO 0
-static const uint8_t SPECVALUE_VIBE = 2;
-static const uint8_t HYPOLOWBG_VIBE = 3;
-static const uint8_t BIGLOWBG_VIBE = 3;
-static const uint8_t LOWBG_VIBE = 3;
-static const uint8_t HIGHBG_VIBE = 2;
-static const uint8_t BIGHIGHBG_VIBE = 2;
-static const uint8_t DOUBLEDOWN_VIBE = 3;
-static const uint8_t APPSYNC_ERR_VIBE = 1;
-static const uint8_t APPMSG_INDROP_VIBE = 1;
-static const uint8_t APPMSG_OUTFAIL_VIBE = 1;
-static const uint8_t BTOUT_VIBE = 1;
-static const uint8_t CGMOUT_VIBE = 1;
-static const uint8_t PHONEOUT_VIBE = 1;
-static const uint8_t LOWBATTERY_VIBE = 1;
-
 // Icon Cross Out & Vibrate Once Wait Times, in Minutes
 // RANGE 0-240
 // IF YOU WANT TO WAIT LONGER TO GET CONDITION, INCREASE NUMBER
@@ -178,16 +163,10 @@ static const bool TurnOff_NOBLUETOOTH_Msg = false;
 static const bool TurnOff_CHECKCGM_Msg = false;
 static const bool TurnOff_CHECKPHONE_Msg = false;
 
-// Control Vibrations
-// IF YOU WANT NO VIBRATIONS, SET TO true
-static const bool TurnOffAllVibrations = false;
-// IF YOU WANT LESS INTENSE VIBRATIONS, SET TO true
-static const bool TurnOffStrongVibrations = false;
-
 // Bluetooth Timer Wait Time, in Seconds
 // RANGE 0-240
 // THIS IS ONLY FOR BAD BLUETOOTH CONNECTIONS
-// TRY EXTENDING THIS TIME TO SEE IF IT WIL HELP SMOOTH CONNECTION
+// TRY EXTENDING THIS TIME TO SEE IF IT WILL HELP SMOOTH CONNECTION
 // CGM DATA RECEIVED EVERY 60 SECONDS, GOING BEYOND THAT MAY RESULT IN MISSED DATA
 static const uint8_t BT_ALERT_WAIT_SECS = 45;
 
@@ -277,6 +256,17 @@ static char *translate_dict_error(DictionaryResult result) {
     case DICT_MALLOC_FAILED: return "DICT_MALLOC_FAILED";
     default: return "DICT UNKNOWN ERROR";
   }
+}
+
+static void handle_battery(BatteryChargeState charge_state) {
+  static char battery_text[] = "100%";
+  
+  if (charge_state.is_charging) {
+    snprintf(battery_text, sizeof(battery_text), "CHRG");
+  } else {
+    snprintf(battery_text, sizeof(battery_text), "%d%%", charge_state.charge_percent);
+  }
+  text_layer_set_text(battery_layer, battery_text);
 }
 
 int myAtoi(char *str) {
@@ -1033,10 +1023,10 @@ static void load_bg() {
 	  }
 	  else if (current_bg == specvalue_ptr[QUESTION_MARKS_VALUE_INDX]) {
 		//PP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, SPECIAL VALUE: SET QUESTION MARKS, CLEAR TEXT");
-        text_layer_set_text(bg_layer, "");
-        //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, SPECIAL VALUE: SET QUESTION MARKS, SET BITMAP");
-        create_update_bitmap(&specialvalue_bitmap,icon_layer,SPECIAL_VALUE_ICONS[QUESTION_MARKS_ICON_INDX]); 
-        //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, SPECIAL VALUE: SET QUESTION MARKS, DONE");
+    text_layer_set_text(bg_layer, "");
+    //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, SPECIAL VALUE: SET QUESTION MARKS, SET BITMAP");
+    create_update_bitmap(&specialvalue_bitmap,icon_layer,SPECIAL_VALUE_ICONS[QUESTION_MARKS_ICON_INDX]); 
+    //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, SPECIAL VALUE: SET QUESTION MARKS, DONE");
 		specvalue_alert = true;
 	  }
 	  else if (current_bg < bg_ptr[SPECVALUE_BG_INDX]) {
@@ -1892,7 +1882,6 @@ void timer_callback_cgm(void *data) {
   //APP_LOG(APP_LOG_LEVEL_INFO, "TIMER CALLBACK, SEND CMD DONE, ABOUT TO REGISTER TIMER");
   // set msg timer
   timer_cgm = app_timer_register((WATCH_MSGSEND_SECS*MS_IN_A_SECOND), timer_callback_cgm, NULL);
-
   //APP_LOG(APP_LOG_LEVEL_INFO, "TIMER CALLBACK, REGISTER TIMER DONE");
   
 } // end timer_callback_cgm
@@ -1908,28 +1897,30 @@ void handle_minute_tick_cgm(struct tm* tick_time_cgm, TimeUnits units_changed_cg
   
   if (units_changed_cgm & MINUTE_UNIT) {
     //APP_LOG(APP_LOG_LEVEL_INFO, "TICK TIME MINUTE CODE");
-	if(clock_is_24h_style() == true) {
+	  if(clock_is_24h_style() == true) {
 		    tick_return_cgm = strftime(time_watch_text, TIME_TEXTBUFF_SIZE, "%H:%M", tick_time_cgm);	
-	} else {
-		tick_return_cgm = strftime(time_watch_text, TIME_TEXTBUFF_SIZE, "%l:%M", tick_time_cgm);
-	}
-	if (tick_return_cgm != 0) {
+	  } else {
+		    tick_return_cgm = strftime(time_watch_text, TIME_TEXTBUFF_SIZE, "%l:%M", tick_time_cgm);
+	  }
+	  if (tick_return_cgm != 0) {
       text_layer_set_text(time_watch_layer, time_watch_text);
-	}
+	  }
 	
-	//APP_LOG(APP_LOG_LEVEL_DEBUG, "lastAlertTime IN:  %i", lastAlertTime);
-	// increment BG snooze
+	  //APP_LOG(APP_LOG_LEVEL_DEBUG, "lastAlertTime IN:  %i", lastAlertTime);
+	  // increment BG snooze
     ++lastAlertTime;
-	//APP_LOG(APP_LOG_LEVEL_DEBUG, "lastAlertTime OUT:  %i", lastAlertTime);
+	  //APP_LOG(APP_LOG_LEVEL_DEBUG, "lastAlertTime OUT:  %i", lastAlertTime);
 	
-  } 
-  else if (units_changed_cgm & DAY_UNIT) {
-    //APP_LOG(APP_LOG_LEVEL_INFO, "TICK TIME DAY CODE");
-    tick_return_cgm = strftime(date_app_text, DATE_TEXTBUFF_SIZE, "%a %d", tick_time_cgm);
-	if (tick_return_cgm != 0) {
-      text_layer_set_text(date_app_layer, date_app_text);
-	}
-  }
+    } 
+    else if (units_changed_cgm & DAY_UNIT) {
+      //APP_LOG(APP_LOG_LEVEL_INFO, "TICK TIME DAY CODE");
+      tick_return_cgm = strftime(date_app_text, DATE_TEXTBUFF_SIZE, "%a %d", tick_time_cgm);
+	    if (tick_return_cgm != 0) {
+        text_layer_set_text(date_app_layer, date_app_text);
+	    }
+    }
+  
+    handle_battery(battery_state_service_peek());  
   
 } // end handle_minute_tick_cgm
 
@@ -1943,11 +1934,19 @@ void window_load_cgm(Window *window_cgm) {
 
   window_layer_cgm = window_get_root_layer(window_cgm);
   
+  // TOPHALF WHITE
+  tophalf_layer = text_layer_create(GRect(0, 0, 144, 66));
+  text_layer_set_text_color(tophalf_layer, GColorBlack);
+  text_layer_set_background_color(tophalf_layer, GColorWhite);
+  text_layer_set_font(tophalf_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+  text_layer_set_text_alignment(tophalf_layer, GTextAlignmentCenter);
+  layer_add_child(window_layer_cgm, text_layer_get_layer(tophalf_layer));
+  
   // DELTA BG
   message_layer = text_layer_create(GRect(0, 33, 144, 55));
   text_layer_set_text_color(message_layer, GColorBlack);
   text_layer_set_background_color(message_layer, GColorWhite);
-  text_layer_set_font(message_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+  text_layer_set_font(message_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
   text_layer_set_text_alignment(message_layer, GTextAlignmentCenter);
   layer_add_child(window_layer_cgm, text_layer_get_layer(message_layer));
 
@@ -1958,13 +1957,13 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, bitmap_layer_get_layer(icon_layer));
 
   // APP TIME AGO ICON
-  appicon_layer = bitmap_layer_create(GRect(118, 63, 40, 24));
+  appicon_layer = bitmap_layer_create(GRect(118, 59, 40, 24));
   bitmap_layer_set_alignment(appicon_layer, GAlignLeft);
   bitmap_layer_set_background_color(appicon_layer, GColorWhite);
   layer_add_child(window_layer_cgm, bitmap_layer_get_layer(appicon_layer));  
 
   // APP TIME AGO READING
-  time_app_layer = text_layer_create(GRect(77, 58, 40, 24));
+  time_app_layer = text_layer_create(GRect(77, 54, 40, 24));
   text_layer_set_text_color(time_app_layer, GColorBlack);
   text_layer_set_background_color(time_app_layer, GColorClear);
   text_layer_set_font(time_app_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
@@ -1980,13 +1979,13 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, text_layer_get_layer(bg_layer));
 
   // CGM TIME AGO ICON
-  cgmicon_layer = bitmap_layer_create(GRect(5, 63, 40, 24));
+  cgmicon_layer = bitmap_layer_create(GRect(5, 59, 40, 24));
   bitmap_layer_set_alignment(cgmicon_layer, GAlignLeft);
   bitmap_layer_set_background_color(cgmicon_layer, GColorWhite);
   layer_add_child(window_layer_cgm, bitmap_layer_get_layer(cgmicon_layer));  
   
   // CGM TIME AGO READING
-  cgmtime_layer = text_layer_create(GRect(28, 58, 40, 24));
+  cgmtime_layer = text_layer_create(GRect(28, 54, 40, 24));
   text_layer_set_text_color(cgmtime_layer, GColorBlack);
   text_layer_set_background_color(cgmtime_layer, GColorClear);
   text_layer_set_font(cgmtime_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
@@ -2002,7 +2001,7 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, text_layer_get_layer(t1dname_layer));
 
   // BATTERY LEVEL ICON
-  batticon_layer = bitmap_layer_create(GRect(80, 147, 28, 20));
+  batticon_layer = bitmap_layer_create(GRect(80, 146, 28, 20));
   bitmap_layer_set_alignment(batticon_layer, GAlignLeft);
   bitmap_layer_set_background_color(batticon_layer, GColorBlack);
   layer_add_child(window_layer_cgm, bitmap_layer_get_layer(batticon_layer));
@@ -2018,17 +2017,17 @@ void window_load_cgm(Window *window_cgm) {
   // INVERTER BATTERY LAYER
   inv_battlevel_layer = inverter_layer_create(GRect(110, 149, 38, 15));
   layer_add_child(window_get_root_layer(window_cgm), inverter_layer_get_layer(inv_battlevel_layer));
-
+  
   // CURRENT ACTUAL TIME FROM WATCH
-  time_watch_layer = text_layer_create(GRect(0, 82, 144, 44));
+  time_watch_layer = text_layer_create(GRect(0, 101, 144, 44));
   text_layer_set_text_color(time_watch_layer, GColorWhite);
   text_layer_set_background_color(time_watch_layer, GColorClear);
   text_layer_set_font(time_watch_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
   text_layer_set_text_alignment(time_watch_layer, GTextAlignmentCenter);
   layer_add_child(window_layer_cgm, text_layer_get_layer(time_watch_layer));
-  
+
   // CURRENT ACTUAL DATE FROM APP
-  date_app_layer = text_layer_create(GRect(0, 120, 144, 25));
+  date_app_layer = text_layer_create(GRect(36, 82, 74, 25));
   text_layer_set_text_color(date_app_layer, GColorWhite);
   text_layer_set_background_color(date_app_layer, GColorClear);
   text_layer_set_font(date_app_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
@@ -2036,10 +2035,19 @@ void window_load_cgm(Window *window_cgm) {
   draw_date_from_app();
   layer_add_child(window_layer_cgm, text_layer_get_layer(date_app_layer));
   
+  // CURRENT WATCH BATTERY LEVEL
+  battery_layer = text_layer_create(GRect(110, 86, 34, 18));
+  text_layer_set_text_color(battery_layer, GColorWhite);
+  text_layer_set_background_color(battery_layer, GColorClear);
+  text_layer_set_font(battery_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+  text_layer_set_text_alignment(battery_layer, GTextAlignmentRight);
+  text_layer_set_text(battery_layer, "100%");
+  layer_add_child(window_layer_cgm, text_layer_get_layer(battery_layer));
+  
   // put " " (space) in bg field so logo continues to show
   // " " (space) also shows these are init values, not bad or null values
   Tuplet initial_values_cgm[] = {
-    TupletCString(CGM_ICON_KEY, " "),
+  TupletCString(CGM_ICON_KEY, " "),
 	TupletCString(CGM_BG_KEY, " "),
 	TupletInteger(CGM_TCGM_KEY, 0),
 	TupletInteger(CGM_TAPP_KEY, 0),
@@ -2089,6 +2097,7 @@ void window_unload_cgm(Window *window_cgm) {
   destroy_null_TextLayer(&time_watch_layer);
   destroy_null_TextLayer(&time_app_layer);
   destroy_null_TextLayer(&date_app_layer);
+  destroy_null_TextLayer(&battery_layer);
 
   //APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW UNLOAD, DESTROY INVERTER LAYERS IF EXIST");  
   destroy_null_InverterLayer(&inv_battlevel_layer);
@@ -2098,12 +2107,6 @@ void window_unload_cgm(Window *window_cgm) {
 
 static void init_cgm(void) {
   //APP_LOG(APP_LOG_LEVEL_INFO, "INIT CODE IN");
-  
-  // subscribe to the tick timer service
-  tick_timer_service_subscribe(MINUTE_UNIT, &handle_minute_tick_cgm);
-
-  // subscribe to the bluetooth connection service
-  bluetooth_connection_service_subscribe(handle_bluetooth_cgm);
   
   // init the window pointer to NULL if it needs it
   if (window_cgm != NULL) {
@@ -2119,6 +2122,15 @@ static void init_cgm(void) {
 	.unload = window_unload_cgm  
   });
 
+  // subscribe to the tick timer service
+  tick_timer_service_subscribe(MINUTE_UNIT, &handle_minute_tick_cgm);
+  
+  // subscribe to the battery state service
+  battery_state_service_subscribe(&handle_battery);
+  
+  // subscribe to the bluetooth connection service
+  bluetooth_connection_service_subscribe(handle_bluetooth_cgm);  
+  
   //APP_LOG(APP_LOG_LEVEL_INFO, "INIT CODE, REGISTER APP MESSAGE ERROR HANDLERS"); 
   app_message_register_inbox_dropped(inbox_dropped_handler_cgm);
   app_message_register_outbox_failed(outbox_failed_handler_cgm);
@@ -2135,11 +2147,15 @@ static void init_cgm(void) {
 
 static void deinit_cgm(void) {
   //APP_LOG(APP_LOG_LEVEL_INFO, "DEINIT CODE IN");
+    
+  // unsubscribe to the battery state service
+  //APP_LOG(APP_LOG_LEVEL_INFO, "DEINIT, UNSUBSCRIBE BATTERY STATE");  
+  battery_state_service_unsubscribe();
   
   // unsubscribe to the tick timer service
   //APP_LOG(APP_LOG_LEVEL_INFO, "DEINIT, UNSUBSCRIBE TICK TIMER");
   tick_timer_service_unsubscribe();
-
+  
   // unsubscribe to the bluetooth connection service
   //APP_LOG(APP_LOG_LEVEL_INFO, "DEINIT, UNSUBSCRIBE BLUETOOTH");
   bluetooth_connection_service_unsubscribe();
@@ -2168,7 +2184,6 @@ static void deinit_cgm(void) {
     //APP_LOG(APP_LOG_LEVEL_INFO, "DEINIT, WINDOW POINTER NOT NULL, SET TO NULL");
     window_cgm = NULL;
   }
-  
   //APP_LOG(APP_LOG_LEVEL_INFO, "DEINIT CODE OUT");
 } // end deinit_cgm
 
