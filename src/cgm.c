@@ -414,86 +414,6 @@ static void create_update_bitmap(GBitmap **bmp_image, BitmapLayer *bmp_layer, co
 	//APP_LOG(APP_LOG_LEVEL_INFO, " CREATE UPDATE BITMAP: EXIT CODE");
 } // end create_update_bitmap
 
-static void alert_handler_cgm(uint8_t alertValue) {
-	//APP_LOG(APP_LOG_LEVEL_INFO, "ALERT HANDLER");
-	//APP_LOG(APP_LOG_LEVEL_DEBUG, "ALERT CODE: %d", alertValue);
-	
-	// CONSTANTS
-	// constants for vibrations patterns; has to be uint32_t, measured in ms, maximum duration 10000ms
-	// Vibe pattern: ON, OFF, ON, OFF; ON for 500ms, OFF for 100ms, ON for 100ms; 
-	
-	// CURRENT PATTERNS
-	const uint32_t highalert_fast[] = { 300,100,50,100,300,100,50,100,300,100,50,100,300,100,50,100,300,100,50,100,300,100,50,100,300,100,50,100,300,100,50,100,300 };
-	const uint32_t medalert_long[] = { 500,100,100,100,500,100,100,100,500,100,100,100,500,100,100,100,500 };
-	const uint32_t lowalert_beebuzz[] = { 75,50,50,50,75,50,50,50,75,50,50,50,75,50,50,50,75,50,50,50,75,50,50,50,75 };
-	
-	// PATTERN DURATION
-	const uint8_t HIGHALERT_FAST_STRONG = 33;
-	const uint8_t HIGHALERT_FAST_SHORT = (33/2);
-	const uint8_t MEDALERT_LONG_STRONG = 17;
-	const uint8_t MEDALERT_LONG_SHORT = (17/2);
-	const uint8_t LOWALERT_BEEBUZZ_STRONG = 25;
-	const uint8_t LOWALERT_BEEBUZZ_SHORT = (25/2);
-	
-	// PAST PATTERNS
-	//const uint32_t hypo[] = { 3200,200,3200 };
-	//const uint32_t low[] = { 1000,100,2000 };
-	//const uint32_t hyper[] = { 50,150,50,150,50,150,50,150,50,150,50,150,50,150,50,150,50,150,50,150,50,150,50,150,50,150,50,150 };
-	//const uint32_t trend_high[] = { 200,200,1000,200,200,200,1000 };
-	//const uint32_t trend_low[] = { 2000,200,1000 };
-	//const uint32_t alert[] = { 500,200,1000 };
-  
-	// CODE START
-	
-	if (TurnOffAllVibrations) {
-      //turn off all vibrations is set, return out here
-      return;
-	}
-	
-	switch (alertValue) {
-
-	case 0:
-      //No alert
-      //Normal (new data, in range, trend okay)
-      break;
-    
-	case 1:;
-      //Low
-      //APP_LOG(APP_LOG_LEVEL_INFO, "ALERT HANDLER: LOW ALERT");
-      VibePattern low_alert_pat = {
-			.durations = lowalert_beebuzz,
-			.num_segments = LOWALERT_BEEBUZZ_STRONG,
-      };
-	  if (TurnOffStrongVibrations) { low_alert_pat.num_segments = LOWALERT_BEEBUZZ_SHORT; };
-      vibes_enqueue_custom_pattern(low_alert_pat);
-      break;
-
-	case 2:;
-      // Medium Alert
-      //APP_LOG(APP_LOG_LEVEL_INFO, "ALERT HANDLER: MEDIUM ALERT");
-      VibePattern med_alert_pat = {
-			.durations = medalert_long,
-			.num_segments = MEDALERT_LONG_STRONG,
-      };
-	  if (TurnOffStrongVibrations) { med_alert_pat.num_segments = MEDALERT_LONG_SHORT; };
-      vibes_enqueue_custom_pattern(med_alert_pat);
-      break;
-
-	case 3:;
-      // High Alert
-      //APP_LOG(APP_LOG_LEVEL_INFO, "ALERT HANDLER: HIGH ALERT");
-      VibePattern high_alert_pat = {
-			.durations = highalert_fast,
-			.num_segments = HIGHALERT_FAST_STRONG,
-      };
-	  if (TurnOffStrongVibrations) { high_alert_pat.num_segments = HIGHALERT_FAST_SHORT; };
-      vibes_enqueue_custom_pattern(high_alert_pat);
-      break;
-  
-	} // switch alertValue
-	
-} // end alert_handler_cgm
-
 void BT_timer_callback(void *data);
 
 void handle_bluetooth_cgm(bool bt_connected) {
@@ -526,7 +446,6 @@ void handle_bluetooth_cgm(bool bt_connected) {
 	// timer has popped
 	// Vibrate; BluetoothAlert takes over until Bluetooth connection comes back on
 	//APP_LOG(APP_LOG_LEVEL_INFO, "BT HANDLER: TIMER POP, NO BLUETOOTH");
-    alert_handler_cgm(BTOUT_VIBE);
     BluetoothAlert = true;
 	
 	// Reset timer pop
@@ -668,7 +587,6 @@ void sync_error_callback_cgm(DictionaryResult appsync_dict_error, AppMessageResu
   // check if need to vibrate
   if (!AppSyncErrAlert) {
     //APP_LOG(APP_LOG_LEVEL_INFO, "APPSYNC ERROR: VIBRATE");
-    alert_handler_cgm(APPSYNC_ERR_VIBE);
 	AppSyncErrAlert = true;
   } 
     
@@ -739,7 +657,6 @@ void inbox_dropped_handler_cgm(AppMessageResult appmsg_indrop_error, void *conte
 	// check if need to vibrate
 	if (!AppMsgInDropAlert) {
       //APP_LOG(APP_LOG_LEVEL_INFO, "APPMSG IN DROP ERROR: VIBRATE");
-      alert_handler_cgm(APPMSG_INDROP_VIBE);
 	  AppMsgInDropAlert = true;
 	} 
     
@@ -810,7 +727,6 @@ void outbox_failed_handler_cgm(DictionaryIterator *failed, AppMessageResult appm
 	// check if need to vibrate
 	if (!AppMsgOutFailAlert) {
       //APP_LOG(APP_LOG_LEVEL_INFO, "APPMSG OUT FAIL ERROR: VIBRATE");
-      alert_handler_cgm(APPMSG_OUTFAIL_VIBE);
 	  AppMsgOutFailAlert = true;
 	} 
 	
@@ -897,7 +813,6 @@ static void load_icon() {
       else if (strcmp(current_icon, DOUBLEDOWN_ARROW) == 0) {
 	    if (!DoubleDownAlert) {
 	      //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD ICON, ICON ARROW: DOUBLE DOWN");
-	      alert_handler_cgm(DOUBLEDOWN_VIBE);
 	      DoubleDownAlert = true;
 	    }
 	    create_update_bitmap(&icon_bitmap,icon_layer,ARROW_ICONS[DOWNDOWN_ICON_INDX]);
@@ -1164,8 +1079,7 @@ static void load_bg() {
      
 	    // send alert and handle a bouncing connection
         if ((lastAlertTime == 0) || (!specvalue_overwrite)) { 
-		  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, SPECIAL VALUE: VIBRATE");
-          alert_handler_cgm(SPECVALUE_VIBE);        
+		  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, SPECIAL VALUE: VIBRATE");    
           // don't know where we are coming from, so reset last alert time no matter what
 		  // set to 1 to prevent bouncing connection
           lastAlertTime = 1;
@@ -1200,7 +1114,6 @@ static void load_bg() {
         // send alert and handle a bouncing connection
         if ((lastAlertTime == 0) || (!hypolow_overwrite)) { 
 		  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, HYPO LOW: VIBRATE");
-          alert_handler_cgm(HYPOLOWBG_VIBE);        
           if (lastAlertTime == 0) { lastAlertTime = 1; }
           if (!hypolow_overwrite) { hypolow_overwrite = true; }
         }
@@ -1231,7 +1144,6 @@ static void load_bg() {
         // send alert and handle a bouncing connection
         if ((lastAlertTime == 0) || (!biglow_overwrite)) { 
 		  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, BIG LOW: VIBRATE");
-          alert_handler_cgm(BIGLOWBG_VIBE);        
           if (lastAlertTime == 0) { lastAlertTime = 1; }
           if (!biglow_overwrite) { biglow_overwrite = true; }
         }
@@ -1261,8 +1173,7 @@ static void load_bg() {
       
         // send alert and handle a bouncing connection
         if ((lastAlertTime == 0) || (!midlow_overwrite)) { 
-		  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, MID LOW: VIBRATE");
-          alert_handler_cgm(LOWBG_VIBE);        
+		  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, MID LOW: VIBRATE");   
           if (lastAlertTime == 0) { lastAlertTime = 1; }
           if (!midlow_overwrite) { midlow_overwrite = true; }
         }
@@ -1293,7 +1204,6 @@ static void load_bg() {
         // send alert and handle a bouncing connection
         if ((lastAlertTime == 0) || (!low_overwrite)) { 
 		  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, LOW: VIBRATE");
-          alert_handler_cgm(LOWBG_VIBE); 
           if (lastAlertTime == 0) { lastAlertTime = 1; }
           if (!low_overwrite) { low_overwrite = true; }
         }
@@ -1324,7 +1234,6 @@ static void load_bg() {
         // send alert and handle a bouncing connection
         if ((lastAlertTime == 0) || (!high_overwrite)) {  
 		  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, HIGH: VIBRATE");
-          alert_handler_cgm(HIGHBG_VIBE);
           if (lastAlertTime == 0) { lastAlertTime = 1; }
           if (!high_overwrite) { high_overwrite = true; }
         }
@@ -1353,7 +1262,6 @@ static void load_bg() {
         // send alert and handle a bouncing connection
         if ((lastAlertTime == 0) || (!midhigh_overwrite)) { 
 		  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, MID HIGH: VIBRATE");
-          alert_handler_cgm(HIGHBG_VIBE);
           if (lastAlertTime == 0) { lastAlertTime = 1; }
           if (!midhigh_overwrite) { midhigh_overwrite = true; }
         }
@@ -1383,7 +1291,6 @@ static void load_bg() {
         // send alert and handle a bouncing connection
         if ((lastAlertTime == 0) || (!bighigh_overwrite)) {
 		  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, BIG HIGH: VIBRATE");
-          alert_handler_cgm(BIGHIGHBG_VIBE);
           if (lastAlertTime == 0) { lastAlertTime = 1; }
           if (!bighigh_overwrite) { bighigh_overwrite = true; }
         }
@@ -1493,7 +1400,6 @@ static void load_cgmtime() {
 		// Vibrate if we need to
 		if ((!CGMOffAlert) && (!PhoneOffAlert)) {
 		  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD CGMTIME, CGM TIMEAGO: VIBRATE");
-		  alert_handler_cgm(CGMOUT_VIBE);
 		  CGMOffAlert = true;
 		}
 	  }
@@ -1586,7 +1492,6 @@ static void load_apptime(){
 		// Vibrate if we need to
 		if (!PhoneOffAlert) {
 		  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD APPTIME, READ APP TIMEAGO: VIBRATE");
-		  alert_handler_cgm(PHONEOUT_VIBE);
 		  PhoneOffAlert = true;
 		}
 	  }
@@ -1798,7 +1703,6 @@ static void load_battlevel() {
       layer_set_hidden((Layer *)inv_battlevel_layer, false);
       if (!LowBatteryAlert) {
 		//APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, ZERO BATTERY, VIBRATE");
-		alert_handler_cgm(LOWBATTERY_VIBE);
 		LowBatteryAlert = true;
       }	  
       //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, ZERO BATTERY, SET ICON");
@@ -1861,7 +1765,6 @@ static void load_battlevel() {
       layer_set_hidden((Layer *)inv_battlevel_layer, false);
       if (!LowBatteryAlert) {
 		//APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, LOW BATTERY, 20 OR LESS, VIBRATE");
-		alert_handler_cgm(LOWBATTERY_VIBE);
 		LowBatteryAlert = true;
       }
     }
@@ -1870,7 +1773,6 @@ static void load_battlevel() {
       layer_set_hidden((Layer *)inv_battlevel_layer, false);
       if (!LowBatteryAlert) {
 		//APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, LOW BATTERY, 10 OR LESS, VIBRATE");
-		alert_handler_cgm(LOWBATTERY_VIBE);
 		LowBatteryAlert = true;
       }
     }
@@ -1879,7 +1781,6 @@ static void load_battlevel() {
       layer_set_hidden((Layer *)inv_battlevel_layer, false);
       if (!LowBatteryAlert) {
 		//APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, LOW BATTERY, 5 OR LESS, VIBRATE");
-		alert_handler_cgm(LOWBATTERY_VIBE);
 		LowBatteryAlert = true;
       }	  
     }
@@ -2279,4 +2180,3 @@ int main(void) {
   deinit_cgm();
   
 } // end main
-
