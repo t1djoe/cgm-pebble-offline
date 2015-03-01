@@ -15,6 +15,7 @@ TextLayer *time_watch_layer = NULL;
 TextLayer *time_app_layer = NULL;
 TextLayer *date_app_layer = NULL;
 TextLayer *battery_layer = NULL;
+TextLayer *phone_battery_layer = NULL;
 
 BitmapLayer *icon_layer = NULL;
 BitmapLayer *cgmicon_layer = NULL;
@@ -53,6 +54,7 @@ static char last_bg[6];
 static int current_bg = 0;
 static bool currentBG_isMMOL = false;
 static char last_battlevel[4];
+static char last_pbattlevel[4];
 static uint32_t current_cgm_time = 0;
 static uint32_t current_app_time = 0;
 static char current_bg_delta[10];
@@ -182,8 +184,9 @@ enum CgmKey {
 	CGM_TCGM_KEY = 0x2,		// TUPLE_INT, 4 BYTES (CGM TIME)
 	CGM_TAPP_KEY = 0x3,		// TUPLE_INT, 4 BYTES (APP / PHONE TIME)
 	CGM_DLTA_KEY = 0x4,		// TUPLE_CSTRING, MAX 5 BYTES (BG DELTA, -100 or -10.0)
-	CGM_UBAT_KEY = 0x5,		// TUPLE_CSTRING, MAX 3 BYTES (UPLOADER BATTERY, 100)
-	CGM_NAME_KEY = 0x6		// TUPLE_CSTRING, MAX 9 BYTES (Christine)
+	CGM_UBAT_KEY = 0x5,		// TUPLE_CSTRING, MAX 3 BYTES (BRIDGE BATTERY, 100)
+	CGM_NAME_KEY = 0x6,		// TUPLE_CSTRING, MAX 9 BYTES (Christine)
+  CGM_PBAT_KEY = 0x7		// TUPLE_CSTRING, MAX 3 BYTES (PHONE BATTERY, 100)
 }; 
 // TOTAL MESSAGE DATA 4x3+2+5+3+9 = 31 BYTES
 // TOTAL KEY HEADER DATA (STRINGS) 4x6+2 = 26 BYTES
@@ -1778,6 +1781,46 @@ static void load_battlevel() {
 	//APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, END FUNCTION");
 } // end load_battlevel
 
+static void load_pbattlevel() {
+    //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, FUNCTION START");
+
+	// CONSTANTS
+	const uint8_t BATTLEVEL_FORMATTED_SIZE = 6;
+	
+	// VARIABLES
+	// NOTE: buffers have to be static and hardcoded
+	int current_pbattlevel = 0;
+	static char pbattlevel_percent[6];
+	
+	// CODE START
+    
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BATTLEVEL, LAST BATTLEVEL: %s", last_pbattlevel);
+  
+	if (strcmp(last_pbattlevel, " ") == 0) {
+      // Init code or no battery, can't do battery; set text layer & icon to empty value 
+      //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, NO BATTERY");
+      text_layer_set_text(phone_battery_layer, "");
+      return;
+    }
+  
+	current_pbattlevel = myAtoi(last_pbattlevel);
+  
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BATTLEVEL, CURRENT BATTLEVEL: %i", current_pbattlevel);
+  
+	if ((current_pbattlevel <= 0) || (current_pbattlevel > 100) || (last_pbattlevel[0] == '-')) { 
+      // got a negative or out of bounds or error battery level
+	  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, UNKNOWN, ERROR BATTERY");
+	  text_layer_set_text(battlevel_layer, "ERR");
+    return;
+	}
+      
+    // get current battery level and set battery level text with percent
+    snprintf(pbattlevel_percent, BATTLEVEL_FORMATTED_SIZE, "%i%%", current_pbattlevel);
+    text_layer_set_text(phone_battery_layer, pbattlevel_percent);
+	
+	//APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, END FUNCTION");
+} // end load_pbattlevel
+
 void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple, const Tuple* old_tuple, void* context) {
 	//APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE");
 	
@@ -1827,6 +1870,7 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
       strncpy(last_battlevel, new_tuple->value->cstring, BATTLEVEL_MSGSTR_SIZE);
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL, CALL LOAD BATTLEVEL");
       load_battlevel();
+      load_pbattlevel();
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL OUT");
       break; // break for CGM_UBAT_KEY
 
@@ -1834,7 +1878,17 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: T1D NAME");
       text_layer_set_text(t1dname_layer, new_tuple->value->cstring);
       break; // break for CGM_NAME_KEY
-	  
+
+	case CGM_PBAT_KEY:;
+   	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: UPLOADER BATTERY LEVEL");
+   	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL IN, COPY LAST BATTLEVEL");
+      strncpy(last_battlevel, new_tuple->value->cstring, BATTLEVEL_MSGSTR_SIZE);
+      //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL, CALL LOAD BATTLEVEL");
+      load_battlevel();
+      load_pbattlevel();
+      //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL OUT");
+      break; // break for CGM_PBAT_KEY    
+    
   }  // end switch(key)
 
 } // end sync_tuple_changed_callback_cgm()
@@ -2036,13 +2090,22 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, text_layer_get_layer(date_app_layer));
   
   // CURRENT WATCH BATTERY LEVEL
-  battery_layer = text_layer_create(GRect(110, 86, 34, 18));
+  battery_layer = text_layer_create(GRect(101, 86, 45, 18));
   text_layer_set_text_color(battery_layer, GColorWhite);
   text_layer_set_background_color(battery_layer, GColorClear);
   text_layer_set_font(battery_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(battery_layer, GTextAlignmentRight);
   text_layer_set_text(battery_layer, "100%");
   layer_add_child(window_layer_cgm, text_layer_get_layer(battery_layer));
+   
+  // CURRENT PHONE BATTERY LEVEL
+  phone_battery_layer = text_layer_create(GRect(0, 86, 45, 18));
+  text_layer_set_text_color(phone_battery_layer, GColorWhite);
+  text_layer_set_background_color(phone_battery_layer, GColorClear);
+  text_layer_set_font(phone_battery_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+  text_layer_set_text_alignment(phone_battery_layer, GTextAlignmentLeft);
+  text_layer_set_text(phone_battery_layer, "100%");
+  layer_add_child(window_layer_cgm, text_layer_get_layer(phone_battery_layer));
   
   // put " " (space) in bg field so logo continues to show
   // " " (space) also shows these are init values, not bad or null values
