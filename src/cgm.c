@@ -1794,7 +1794,7 @@ static void load_pbattlevel() {
 	
 	// CODE START
     
-	//APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BATTLEVEL, LAST BATTLEVEL: %s", last_pbattlevel);
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BATTLEVEL, LAST BATTLEVEL: %s", last_pbattlevel);
   
 	if (strcmp(last_pbattlevel, " ") == 0) {
       // Init code or no battery, can't do battery; set text layer & icon to empty value 
@@ -1805,12 +1805,12 @@ static void load_pbattlevel() {
   
 	current_pbattlevel = myAtoi(last_pbattlevel);
   
-	//APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BATTLEVEL, CURRENT BATTLEVEL: %i", current_pbattlevel);
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BATTLEVEL, CURRENT BATTLEVEL: %i", current_pbattlevel);
   
 	if ((current_pbattlevel <= 0) || (current_pbattlevel > 100) || (last_pbattlevel[0] == '-')) { 
       // got a negative or out of bounds or error battery level
 	  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, UNKNOWN, ERROR BATTERY");
-	  text_layer_set_text(battlevel_layer, "ERR");
+	  text_layer_set_text(phone_battery_layer, "ERR");
     return;
 	}
       
@@ -1870,7 +1870,6 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
       strncpy(last_battlevel, new_tuple->value->cstring, BATTLEVEL_MSGSTR_SIZE);
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL, CALL LOAD BATTLEVEL");
       load_battlevel();
-      load_pbattlevel();
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL OUT");
       break; // break for CGM_UBAT_KEY
 
@@ -1882,9 +1881,8 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
 	case CGM_PBAT_KEY:;
    	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: UPLOADER BATTERY LEVEL");
    	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL IN, COPY LAST BATTLEVEL");
-      strncpy(last_battlevel, new_tuple->value->cstring, BATTLEVEL_MSGSTR_SIZE);
+      strncpy(last_pbattlevel, new_tuple->value->cstring, BATTLEVEL_MSGSTR_SIZE);
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL, CALL LOAD BATTLEVEL");
-      load_battlevel();
       load_pbattlevel();
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL OUT");
       break; // break for CGM_PBAT_KEY    
@@ -2104,7 +2102,7 @@ void window_load_cgm(Window *window_cgm) {
   text_layer_set_background_color(phone_battery_layer, GColorClear);
   text_layer_set_font(phone_battery_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(phone_battery_layer, GTextAlignmentLeft);
-  text_layer_set_text(phone_battery_layer, "100%");
+  text_layer_set_text(phone_battery_layer, "0%");
   layer_add_child(window_layer_cgm, text_layer_get_layer(phone_battery_layer));
   
   // put " " (space) in bg field so logo continues to show
