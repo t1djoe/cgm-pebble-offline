@@ -16,17 +16,17 @@ TextLayer *time_app_layer = NULL;
 TextLayer *date_app_layer = NULL;
 TextLayer *battery_layer = NULL;
 TextLayer *phone_battery_layer = NULL;
+TextLayer *current_iob_layer = NULL;
+TextLayer *current_cob_layer = NULL;
 
 BitmapLayer *icon_layer = NULL;
 BitmapLayer *cgmicon_layer = NULL;
 BitmapLayer *appicon_layer = NULL;
-BitmapLayer *batticon_layer = NULL;
 
 GBitmap *icon_bitmap = NULL;
 GBitmap *appicon_bitmap = NULL;
 GBitmap *cgmicon_bitmap = NULL;
 GBitmap *specialvalue_bitmap = NULL;
-GBitmap *batticon_bitmap = NULL;
 
 InverterLayer *inv_battlevel_layer = NULL;
 
@@ -55,6 +55,8 @@ static int current_bg = 0;
 static bool currentBG_isMMOL = false;
 static char last_battlevel[4];
 static char last_pbattlevel[4];
+static char last_iobvalue[6];
+static char last_cobvalue[6];
 static uint32_t current_cgm_time = 0;
 static uint32_t current_app_time = 0;
 static char current_bg_delta[10];
@@ -186,7 +188,9 @@ enum CgmKey {
 	CGM_DLTA_KEY = 0x4,		// TUPLE_CSTRING, MAX 5 BYTES (BG DELTA, -100 or -10.0)
 	CGM_UBAT_KEY = 0x5,		// TUPLE_CSTRING, MAX 3 BYTES (BRIDGE BATTERY, 100)
 	CGM_NAME_KEY = 0x6,		// TUPLE_CSTRING, MAX 9 BYTES (Christine)
-  CGM_PBAT_KEY = 0x7		// TUPLE_CSTRING, MAX 3 BYTES (PHONE BATTERY, 100)
+  CGM_PBAT_KEY = 0x7,		// TUPLE_CSTRING, MAX 3 BYTES (PHONE BATTERY, 100)
+  CGM_IOB_KEY = 0x8,		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT IOB VALUE, 99.9)
+  CGM_COB_KEY = 0x9		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT COB VALUE, 99.9)
 }; 
 // TOTAL MESSAGE DATA 4x3+2+5+3+9 = 31 BYTES
 // TOTAL KEY HEADER DATA (STRINGS) 4x6+2 = 26 BYTES
@@ -267,7 +271,7 @@ static void handle_battery(BatteryChargeState charge_state) {
   if (charge_state.is_charging) {
     snprintf(battery_text, sizeof(battery_text), "CHRG");
   } else {
-    snprintf(battery_text, sizeof(battery_text), "%d%%", charge_state.charge_percent);
+    snprintf(battery_text, sizeof(battery_text), "%i%%", charge_state.charge_percent);
   }
   text_layer_set_text(battery_layer, battery_text);
 }
@@ -1638,36 +1642,6 @@ static void load_battlevel() {
 	// CONSTANTS
 	const uint8_t BATTLEVEL_FORMATTED_SIZE = 6;
 	
-	// ARRAY OF BATTERY LEVEL ICONS
-	const uint32_t BATTLEVEL_ICONS[] = {
-	  RESOURCE_ID_IMAGE_BATTEMPTY,  //0
-	  RESOURCE_ID_IMAGE_BATT10,     //1
-	  RESOURCE_ID_IMAGE_BATT20,     //2
-	  RESOURCE_ID_IMAGE_BATT30,     //3
-	  RESOURCE_ID_IMAGE_BATT40,     //4
-	  RESOURCE_ID_IMAGE_BATT50,     //5
-	  RESOURCE_ID_IMAGE_BATT60,     //6
-	  RESOURCE_ID_IMAGE_BATT70,     //7
-	  RESOURCE_ID_IMAGE_BATT80,     //8
-	  RESOURCE_ID_IMAGE_BATT90,     //9
-	  RESOURCE_ID_IMAGE_BATTFULL,   //10
-	  RESOURCE_ID_IMAGE_BATTNONE    //11
-	};
-    
-	// INDEX FOR ARRAY OF BATTERY LEVEL ICONS
-	const uint8_t BATTEMPTY_ICON_INDX = 0;
-	const uint8_t BATT10_ICON_INDX = 1;
-	const uint8_t BATT20_ICON_INDX = 2;
-	const uint8_t BATT30_ICON_INDX = 3;
-	const uint8_t BATT40_ICON_INDX = 4;
-	const uint8_t BATT50_ICON_INDX = 5;
-	const uint8_t BATT60_ICON_INDX = 6;
-	const uint8_t BATT70_ICON_INDX = 7;
-	const uint8_t BATT80_ICON_INDX = 8;
-	const uint8_t BATT90_ICON_INDX = 9;
-	const uint8_t BATTFULL_ICON_INDX = 10;
-	const uint8_t BATTNONE_ICON_INDX = 11;
-	
 	// VARIABLES
 	// NOTE: buffers have to be static and hardcoded
 	int current_battlevel = 0;
@@ -1684,7 +1658,6 @@ static void load_battlevel() {
       // Init code or no battery, can't do battery; set text layer & icon to empty value 
       //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, NO BATTERY");
       text_layer_set_text(battlevel_layer, "");
-      create_update_bitmap(&batticon_bitmap,batticon_layer,BATTLEVEL_ICONS[BATTNONE_ICON_INDX]); 
       LowBatteryAlert = false;	  
       return;
     }
@@ -1699,7 +1672,6 @@ static void load_battlevel() {
 		LowBatteryAlert = true;
       }	  
       //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, ZERO BATTERY, SET ICON");
-      create_update_bitmap(&batticon_bitmap,batticon_layer,BATTLEVEL_ICONS[BATTEMPTY_ICON_INDX]);
       return;
     }
   
@@ -1712,77 +1684,18 @@ static void load_battlevel() {
 	  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, UNKNOWN, ERROR BATTERY");
 	  text_layer_set_text(battlevel_layer, "ERR");
 	  layer_set_hidden((Layer *)inv_battlevel_layer, false);
-	  create_update_bitmap(&batticon_bitmap,batticon_layer,BATTLEVEL_ICONS[BATTNONE_ICON_INDX]);
     return;
 	}
       
     // get current battery level and set battery level text with percent
     snprintf(battlevel_percent, BATTLEVEL_FORMATTED_SIZE, "%i%%", current_battlevel);
     text_layer_set_text(battlevel_layer, battlevel_percent);
-
-    // check battery level, set battery level icon
-    if ( (current_battlevel > 90) && (current_battlevel <= 100) ) {
-      create_update_bitmap(&batticon_bitmap,batticon_layer,BATTLEVEL_ICONS[BATTFULL_ICON_INDX]);
-	  LowBatteryAlert = false;
-    }
-    else if (current_battlevel > 80) {
-      create_update_bitmap(&batticon_bitmap,batticon_layer,BATTLEVEL_ICONS[BATT90_ICON_INDX]);
-	  LowBatteryAlert = false;
-    }
-    else if (current_battlevel > 70) {
-      create_update_bitmap(&batticon_bitmap,batticon_layer,BATTLEVEL_ICONS[BATT80_ICON_INDX]);
-	  LowBatteryAlert = false;
-    }
-    else if (current_battlevel > 60) {
-      create_update_bitmap(&batticon_bitmap,batticon_layer,BATTLEVEL_ICONS[BATT70_ICON_INDX]);
-	  LowBatteryAlert = false;
-    }
-    else if (current_battlevel > 50) {
-      create_update_bitmap(&batticon_bitmap,batticon_layer,BATTLEVEL_ICONS[BATT60_ICON_INDX]);
-	  LowBatteryAlert = false;
-    }
-    else if (current_battlevel > 40) {
-      create_update_bitmap(&batticon_bitmap,batticon_layer,BATTLEVEL_ICONS[BATT50_ICON_INDX]);
-	  LowBatteryAlert = false;
-    }
-    else if (current_battlevel > 30) {
-      create_update_bitmap(&batticon_bitmap,batticon_layer,BATTLEVEL_ICONS[BATT40_ICON_INDX]);
-	  LowBatteryAlert = false;
-    }
-    else if (current_battlevel > 20) {
-      create_update_bitmap(&batticon_bitmap,batticon_layer,BATTLEVEL_ICONS[BATT30_ICON_INDX]);
-	  LowBatteryAlert = false;
-    }
-    else if (current_battlevel > 10) {
-      create_update_bitmap(&batticon_bitmap,batticon_layer,BATTLEVEL_ICONS[BATT20_ICON_INDX]);
-      layer_set_hidden((Layer *)inv_battlevel_layer, false);
-      if (!LowBatteryAlert) {
-		//APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, LOW BATTERY, 20 OR LESS, VIBRATE");
-		LowBatteryAlert = true;
-      }
-    }
-    else if (current_battlevel > 5) {
-      create_update_bitmap(&batticon_bitmap,batticon_layer,BATTLEVEL_ICONS[BATT10_ICON_INDX]);
-      layer_set_hidden((Layer *)inv_battlevel_layer, false);
-      if (!LowBatteryAlert) {
-		//APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, LOW BATTERY, 10 OR LESS, VIBRATE");
-		LowBatteryAlert = true;
-      }
-    }
-    else if ( (current_battlevel > 0) && (current_battlevel <= 5) ) {
-      create_update_bitmap(&batticon_bitmap,batticon_layer,BATTLEVEL_ICONS[BATTEMPTY_ICON_INDX]);
-      layer_set_hidden((Layer *)inv_battlevel_layer, false);
-      if (!LowBatteryAlert) {
-		//APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, LOW BATTERY, 5 OR LESS, VIBRATE");
-		LowBatteryAlert = true;
-      }	  
-    }
 	
 	//APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, END FUNCTION");
 } // end load_battlevel
 
 static void load_pbattlevel() {
-    //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, FUNCTION START");
+  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, FUNCTION START");
 
 	// CONSTANTS
 	const uint8_t BATTLEVEL_FORMATTED_SIZE = 6;
@@ -1794,7 +1707,7 @@ static void load_pbattlevel() {
 	
 	// CODE START
     
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BATTLEVEL, LAST BATTLEVEL: %s", last_pbattlevel);
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BATTLEVEL, LAST BATTLEVEL: %s", last_pbattlevel);
   
 	if (strcmp(last_pbattlevel, " ") == 0) {
       // Init code or no battery, can't do battery; set text layer & icon to empty value 
@@ -1805,7 +1718,7 @@ static void load_pbattlevel() {
   
 	current_pbattlevel = myAtoi(last_pbattlevel);
   
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BATTLEVEL, CURRENT BATTLEVEL: %i", current_pbattlevel);
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BATTLEVEL, CURRENT BATTLEVEL: %i", current_pbattlevel);
   
 	if ((current_pbattlevel <= 0) || (current_pbattlevel > 100) || (last_pbattlevel[0] == '-')) { 
       // got a negative or out of bounds or error battery level
@@ -1820,6 +1733,39 @@ static void load_pbattlevel() {
 	
 	//APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, END FUNCTION");
 } // end load_pbattlevel
+
+static void load_iobvalue() {
+
+	// CODE START
+    
+	if (strcmp(last_iobvalue, " ") == 0) {
+      // Init code or no battery, can't do battery; set text layer & icon to empty value 
+      //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, NO BATTERY");
+      text_layer_set_text(current_iob_layer, "0.0U");
+      return;
+    }
+     
+    // get current IOB value and set IOB Value text with U
+    text_layer_set_text(current_iob_layer, strcat(last_iobvalue, "U"));
+	
+} // end load_iobvalue
+
+static void load_cobvalue() {
+
+	// CODE START
+    
+	if (strcmp(last_cobvalue, " ") == 0) {
+      // Init code or no battery, can't do battery; set text layer & icon to empty value 
+      //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, NO BATTERY");
+      text_layer_set_text(current_cob_layer, "0.0g");
+      return;
+    }
+     
+    // get current IOB value and set IOB Value text with U
+    text_layer_set_text(current_cob_layer, strcat(last_iobvalue, "g"));
+	
+} // end load_cobvalue
+
 
 void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple, const Tuple* old_tuple, void* context) {
 	//APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE");
@@ -1837,7 +1783,7 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
 	case CGM_ICON_KEY:;
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: ICON ARROW");
       strncpy(current_icon, new_tuple->value->cstring, ICON_MSGSTR_SIZE);
-	  load_icon();
+	    load_icon();
       break; // break for CGM_ICON_KEY
 
 	case CGM_BG_KEY:;
@@ -1848,21 +1794,21 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
 
 	case CGM_TCGM_KEY:;
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: READ CGM TIME");
-	  current_cgm_time = new_tuple->value->uint32;
+	    current_cgm_time = new_tuple->value->uint32;
       load_cgmtime();
       break; // break for CGM_TCGM_KEY
 
 	case CGM_TAPP_KEY:;
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: READ APP TIME NOW");
-	  current_app_time = new_tuple->value->uint32;
+  	  current_app_time = new_tuple->value->uint32;
       load_apptime();    
       break; // break for CGM_TAPP_KEY
 
 	case CGM_DLTA_KEY:;
    	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BG DELTA");
-	  strncpy(current_bg_delta, new_tuple->value->cstring, BGDELTA_MSGSTR_SIZE);
-	  load_bg_delta();
-	  break; // break for CGM_DLTA_KEY
+  	  strncpy(current_bg_delta, new_tuple->value->cstring, BGDELTA_MSGSTR_SIZE);
+	    load_bg_delta();
+	    break; // break for CGM_DLTA_KEY
 	
 	case CGM_UBAT_KEY:;
    	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: UPLOADER BATTERY LEVEL");
@@ -1880,12 +1826,30 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
 
 	case CGM_PBAT_KEY:;
    	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: UPLOADER BATTERY LEVEL");
-   	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL IN, COPY LAST BATTLEVEL");
+      //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: PHONE BATTERY LEVEL IN, COPY LAST PBATTLEVEL");
       strncpy(last_pbattlevel, new_tuple->value->cstring, BATTLEVEL_MSGSTR_SIZE);
-      //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL, CALL LOAD BATTLEVEL");
+      //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: PHONE BATTERY LEVEL, CALL LOAD PBATTLEVEL");
       load_pbattlevel();
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL OUT");
       break; // break for CGM_PBAT_KEY    
+
+	case CGM_IOB_KEY:;
+   	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: CURRENT IOB VALUE");
+      //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: CURRENT IOB VALUE IN, COPY LAST IOB VALUE");
+      strncpy(last_iobvalue, new_tuple->value->cstring, BG_MSGSTR_SIZE);
+      //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: PHONE BATTERY LEVEL, CALL LOAD PBATTLEVEL");
+      load_iobvalue();
+      //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL OUT");
+      break; // break for CGM_IOB_KEY        
+
+  case CGM_COB_KEY:;
+   	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: CURRENT COB VALUE");
+      //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: CURRENT COB VALUE IN, COPY LAST COB VALUE");
+      strncpy(last_cobvalue, new_tuple->value->cstring, BG_MSGSTR_SIZE);
+      //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: PHONE BATTERY LEVEL, CALL LOAD PBATTLEVEL");
+      load_cobvalue();
+      //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL OUT");
+      break; // break for CGM_IOB_KEY        
     
   }  // end switch(key)
 
@@ -2045,33 +2009,28 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, text_layer_get_layer(cgmtime_layer));
 
   // T1D NAME
-  t1dname_layer = text_layer_create(GRect(5, 138, 69, 28));
+  t1dname_layer = text_layer_create(GRect(55, 144, 50, 18));
   text_layer_set_text_color(t1dname_layer, GColorWhite);
   text_layer_set_background_color(t1dname_layer, GColorClear);
-  text_layer_set_font(t1dname_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  text_layer_set_font(t1dname_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(t1dname_layer, GTextAlignmentLeft);
   layer_add_child(window_layer_cgm, text_layer_get_layer(t1dname_layer));
 
-  // BATTERY LEVEL ICON
-  batticon_layer = bitmap_layer_create(GRect(80, 146, 28, 20));
-  bitmap_layer_set_alignment(batticon_layer, GAlignLeft);
-  bitmap_layer_set_background_color(batticon_layer, GColorBlack);
-  layer_add_child(window_layer_cgm, bitmap_layer_get_layer(batticon_layer));
-
   // BATTERY LEVEL
-  battlevel_layer = text_layer_create(GRect(110, 144, 38, 20));
+  battlevel_layer = text_layer_create(GRect(105, 144, 41, 18));
   text_layer_set_text_color(battlevel_layer, GColorWhite);
   text_layer_set_background_color(battlevel_layer, GColorBlack);
   text_layer_set_font(battlevel_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-  text_layer_set_text_alignment(battlevel_layer, GTextAlignmentLeft);
+  text_layer_set_text_alignment(battlevel_layer, GTextAlignmentRight);
+  text_layer_set_text(battlevel_layer, "100%");
   layer_add_child(window_layer_cgm, text_layer_get_layer(battlevel_layer));
   
   // INVERTER BATTERY LAYER
-  inv_battlevel_layer = inverter_layer_create(GRect(110, 149, 38, 15));
+  inv_battlevel_layer = inverter_layer_create(GRect(105, 148, 41, 18));
   layer_add_child(window_get_root_layer(window_cgm), inverter_layer_get_layer(inv_battlevel_layer));
   
   // CURRENT ACTUAL TIME FROM WATCH
-  time_watch_layer = text_layer_create(GRect(0, 101, 144, 44));
+  time_watch_layer = text_layer_create(GRect(0, 95, 144, 44));
   text_layer_set_text_color(time_watch_layer, GColorWhite);
   text_layer_set_background_color(time_watch_layer, GColorClear);
   text_layer_set_font(time_watch_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
@@ -2079,7 +2038,7 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, text_layer_get_layer(time_watch_layer));
 
   // CURRENT ACTUAL DATE FROM APP
-  date_app_layer = text_layer_create(GRect(36, 82, 74, 25));
+  date_app_layer = text_layer_create(GRect(36, 80, 74, 25));
   text_layer_set_text_color(date_app_layer, GColorWhite);
   text_layer_set_background_color(date_app_layer, GColorClear);
   text_layer_set_font(date_app_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
@@ -2088,7 +2047,7 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, text_layer_get_layer(date_app_layer));
   
   // CURRENT WATCH BATTERY LEVEL
-  battery_layer = text_layer_create(GRect(101, 86, 45, 18));
+  battery_layer = text_layer_create(GRect(105, 84, 41, 18));
   text_layer_set_text_color(battery_layer, GColorWhite);
   text_layer_set_background_color(battery_layer, GColorClear);
   text_layer_set_font(battery_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
@@ -2097,13 +2056,31 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, text_layer_get_layer(battery_layer));
    
   // CURRENT PHONE BATTERY LEVEL
-  phone_battery_layer = text_layer_create(GRect(0, 86, 45, 18));
+  phone_battery_layer = text_layer_create(GRect(0, 84, 41, 18));
   text_layer_set_text_color(phone_battery_layer, GColorWhite);
   text_layer_set_background_color(phone_battery_layer, GColorClear);
   text_layer_set_font(phone_battery_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(phone_battery_layer, GTextAlignmentLeft);
   text_layer_set_text(phone_battery_layer, "0%");
   layer_add_child(window_layer_cgm, text_layer_get_layer(phone_battery_layer));
+  
+  // CURRENT IOB VALUE
+  current_iob_layer = text_layer_create(GRect(0, 130, 41, 20));
+  text_layer_set_text_color(current_iob_layer, GColorWhite);
+  text_layer_set_background_color(current_iob_layer, GColorClear);
+  text_layer_set_font(current_iob_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+  text_layer_set_text_alignment(current_iob_layer, GTextAlignmentLeft);
+  text_layer_set_text(current_iob_layer, "0.0U");
+  layer_add_child(window_layer_cgm, text_layer_get_layer(current_iob_layer));
+  
+    // CURRENT COB VALUE
+  current_cob_layer = text_layer_create(GRect(0, 145, 41, 21));
+  text_layer_set_text_color(current_cob_layer, GColorWhite);
+  text_layer_set_background_color(current_cob_layer, GColorClear);
+  text_layer_set_font(current_cob_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+  text_layer_set_text_alignment(current_cob_layer, GTextAlignmentLeft);
+  text_layer_set_text(current_cob_layer, "0.0g");
+  layer_add_child(window_layer_cgm, text_layer_get_layer(current_cob_layer));
   
   // put " " (space) in bg field so logo continues to show
   // " " (space) also shows these are init values, not bad or null values
@@ -2114,7 +2091,10 @@ void window_load_cgm(Window *window_cgm) {
 	TupletInteger(CGM_TAPP_KEY, 0),
 	TupletCString(CGM_DLTA_KEY, "LOAD"),
 	TupletCString(CGM_UBAT_KEY, " "),
-	TupletCString(CGM_NAME_KEY, " ")
+	TupletCString(CGM_NAME_KEY, " "),
+  TupletCString(CGM_PBAT_KEY, " "),
+  TupletCString(CGM_IOB_KEY, " "),
+  TupletCString(CGM_COB_KEY, " ")
   };
   
   //APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW LOAD, ABOUT TO CALL APP SYNC INIT");
@@ -2127,7 +2107,7 @@ void window_load_cgm(Window *window_cgm) {
   }
   timer_cgm = app_timer_register((LOADING_MSGSEND_SECS*MS_IN_A_SECOND), timer_callback_cgm, NULL);
   //APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW LOAD, TIMER REGISTER DONE");
-  
+  APP_LOG(APP_LOG_LEVEL_INFO, "last_pbattlevel: %s", last_pbattlevel);
 } // end window_load_cgm
 
 void window_unload_cgm(Window *window_cgm) {
@@ -2141,13 +2121,11 @@ void window_unload_cgm(Window *window_cgm) {
   destroy_null_GBitmap(&appicon_bitmap);
   destroy_null_GBitmap(&cgmicon_bitmap);
   destroy_null_GBitmap(&specialvalue_bitmap);
-  destroy_null_GBitmap(&batticon_bitmap);
-
+  
   //APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW UNLOAD, DESTROY BITMAPS IF EXIST");  
   destroy_null_BitmapLayer(&icon_layer);
   destroy_null_BitmapLayer(&cgmicon_layer);
   destroy_null_BitmapLayer(&appicon_layer);
-  destroy_null_BitmapLayer(&batticon_layer);
 
   //APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW UNLOAD, DESTROY TEXT LAYERS IF EXIST");  
   destroy_null_TextLayer(&bg_layer);
@@ -2251,8 +2229,9 @@ static void deinit_cgm(void) {
 int main(void) {
 
   init_cgm();
-
+  
   app_event_loop();
+  
   deinit_cgm();
   
 } // end main
