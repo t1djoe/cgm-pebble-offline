@@ -18,6 +18,8 @@ TextLayer *battery_layer = NULL;
 TextLayer *phone_battery_layer = NULL;
 TextLayer *current_iob_layer = NULL;
 TextLayer *current_cob_layer = NULL;
+TextLayer *previous_bg_layer = NULL;
+TextLayer *current_bgi_layer = NULL;
 
 BitmapLayer *icon_layer = NULL;
 BitmapLayer *cgmicon_layer = NULL;
@@ -51,6 +53,7 @@ bool bluetooth_connected_cgm = true;
 // buffers have to be static and hardcoded
 static char current_icon[2];
 static char last_bg[6];
+static char last_pbg[6];
 static int current_bg = 0;
 static bool currentBG_isMMOL = false;
 static char last_battlevel[4];
@@ -191,6 +194,8 @@ enum CgmKey {
   CGM_PBAT_KEY = 0x7,		// TUPLE_CSTRING, MAX 3 BYTES (PHONE BATTERY, 100)
   CGM_IOB_KEY = 0x8,		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT IOB VALUE, 99.9)
   CGM_COB_KEY = 0x9		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT COB VALUE, 99.9)
+  //CGM_BGI_KEY = 0xA,		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT BGI VALUE, 99.9)
+  //CGM_PBG_KEY = 0xB		// TUPLE_CSTRING, MAX 4 BYTES (PREVIOUS BG VALUE, 253 OR 22.2)
 }; 
 // TOTAL MESSAGE DATA 4x3+2+5+3+9 = 31 BYTES
 // TOTAL KEY HEADER DATA (STRINGS) 4x6+2 = 26 BYTES
@@ -1320,6 +1325,17 @@ static void load_bg() {
 	
 } // end load_bg
 
+static void load_pbg() {
+    //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD PBG, FUNCTION START");
+
+ 	  // CODE START
+	
+    // Set text 
+      
+	  text_layer_set_text(previous_bg_layer, last_pbg);
+
+} // end load_pbg
+
 static void load_cgmtime() {
     //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD CGMTIME FUNCTION START");
 	
@@ -1850,6 +1866,12 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
       load_cobvalue();
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL OUT");
       break; // break for CGM_IOB_KEY        
+
+//	case CGM_PBG_KEY:;
+	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BG CURRENT");
+//      strncpy(last_pbg, new_tuple->value->cstring, BG_MSGSTR_SIZE);
+//      load_pbg();
+//      break; // break for CGM_PBG_KEY    
     
   }  // end switch(key)
 
@@ -1951,7 +1973,7 @@ void window_load_cgm(Window *window_cgm) {
   window_layer_cgm = window_get_root_layer(window_cgm);
   
   // TOPHALF WHITE
-  tophalf_layer = text_layer_create(GRect(0, 0, 144, 66));
+  tophalf_layer = text_layer_create(GRect(0, 0, 144, 88));
   text_layer_set_text_color(tophalf_layer, GColorBlack);
   text_layer_set_background_color(tophalf_layer, GColorWhite);
   text_layer_set_font(tophalf_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
@@ -1959,7 +1981,7 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, text_layer_get_layer(tophalf_layer));
   
   // DELTA BG
-  message_layer = text_layer_create(GRect(0, 33, 144, 55));
+  message_layer = text_layer_create(GRect(45, 34, 99, 55));
   text_layer_set_text_color(message_layer, GColorBlack);
   text_layer_set_background_color(message_layer, GColorWhite);
   text_layer_set_font(message_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
@@ -1987,13 +2009,31 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, text_layer_get_layer(time_app_layer));
   
   // BG
-  bg_layer = text_layer_create(GRect(50, -5, 60, 47));
+  bg_layer = text_layer_create(GRect(45, -5, 65, 47));
   text_layer_set_text_color(bg_layer, GColorBlack);
   text_layer_set_background_color(bg_layer, GColorWhite);
   text_layer_set_font(bg_layer, fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK));
   text_layer_set_text_alignment(bg_layer, GTextAlignmentCenter);
   layer_add_child(window_layer_cgm, text_layer_get_layer(bg_layer));
 
+  // PREVIOUS BG VALUE
+  previous_bg_layer = text_layer_create(GRect(0, 0, 50, 19));
+  text_layer_set_text_color(previous_bg_layer, GColorBlack);
+  text_layer_set_background_color(previous_bg_layer, GColorClear);
+  text_layer_set_font(previous_bg_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+  text_layer_set_text_alignment(previous_bg_layer, GTextAlignmentLeft);
+  text_layer_set_text(previous_bg_layer, "000");
+  layer_add_child(window_layer_cgm, text_layer_get_layer(previous_bg_layer));
+  
+  // CURRENT BGI VALUE
+  current_bgi_layer = text_layer_create(GRect(0, 18, 50, 19));
+  text_layer_set_text_color(current_bgi_layer, GColorBlack);
+  text_layer_set_background_color(current_bgi_layer, GColorClear);
+  text_layer_set_font(current_bgi_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+  text_layer_set_text_alignment(current_bgi_layer, GTextAlignmentLeft);
+  text_layer_set_text(current_bgi_layer, "BGI 0.0");
+  layer_add_child(window_layer_cgm, text_layer_get_layer(current_bgi_layer));
+  
   // CGM TIME AGO ICON
   cgmicon_layer = bitmap_layer_create(GRect(5, 59, 40, 24));
   bitmap_layer_set_alignment(cgmicon_layer, GAlignLeft);
@@ -2019,7 +2059,7 @@ void window_load_cgm(Window *window_cgm) {
   // BATTERY LEVEL
   battlevel_layer = text_layer_create(GRect(105, 144, 41, 18));
   text_layer_set_text_color(battlevel_layer, GColorWhite);
-  text_layer_set_background_color(battlevel_layer, GColorBlack);
+  text_layer_set_background_color(battlevel_layer, GColorClear);
   text_layer_set_font(battlevel_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(battlevel_layer, GTextAlignmentRight);
   text_layer_set_text(battlevel_layer, "100%");
@@ -2081,7 +2121,7 @@ void window_load_cgm(Window *window_cgm) {
   text_layer_set_text_alignment(current_cob_layer, GTextAlignmentLeft);
   text_layer_set_text(current_cob_layer, "0.0g");
   layer_add_child(window_layer_cgm, text_layer_get_layer(current_cob_layer));
-  
+
   // put " " (space) in bg field so logo continues to show
   // " " (space) also shows these are init values, not bad or null values
   Tuplet initial_values_cgm[] = {
@@ -2093,8 +2133,8 @@ void window_load_cgm(Window *window_cgm) {
 	TupletCString(CGM_UBAT_KEY, " "),
 	TupletCString(CGM_NAME_KEY, " "),
   TupletCString(CGM_PBAT_KEY, " "),
-  TupletCString(CGM_IOB_KEY, " ")
-  //TupletCString(CGM_COB_KEY, " ")
+  TupletCString(CGM_IOB_KEY, " "),
+  TupletCString(CGM_COB_KEY, " ")
   };
   
   //APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW LOAD, ABOUT TO CALL APP SYNC INIT");
@@ -2137,6 +2177,10 @@ void window_unload_cgm(Window *window_cgm) {
   destroy_null_TextLayer(&time_app_layer);
   destroy_null_TextLayer(&date_app_layer);
   destroy_null_TextLayer(&battery_layer);
+  destroy_null_TextLayer(&current_iob_layer);
+  destroy_null_TextLayer(&current_cob_layer);
+  destroy_null_TextLayer(&previous_bg_layer);
+  destroy_null_TextLayer(&current_bgi_layer);
 
   //APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW UNLOAD, DESTROY INVERTER LAYERS IF EXIST");  
   destroy_null_InverterLayer(&inv_battlevel_layer);
