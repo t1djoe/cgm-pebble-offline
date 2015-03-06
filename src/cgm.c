@@ -198,14 +198,14 @@ enum CgmKey {
 
 // ARRAY OF SPECIAL VALUE ICONS
 static const uint8_t SPECIAL_VALUE_ICONS[] = {
-	RESOURCE_ID_IMAGE_NONE,             //0
-	RESOURCE_ID_IMAGE_BROKEN_ANTENNA,   //1
-	RESOURCE_ID_IMAGE_BLOOD_DROP,       //2
+	RESOURCE_ID_IMAGE_NONE_SMALL,             //0
+	RESOURCE_ID_IMAGE_BROKEN_ANTENNA_SMALL,   //1
+	RESOURCE_ID_IMAGE_BLOOD_DROP_SMALL,       //2
 	RESOURCE_ID_IMAGE_STOP_LIGHT,       //3
-	RESOURCE_ID_IMAGE_HOURGLASS,        //4
-	RESOURCE_ID_IMAGE_QUESTION_MARKS,   //5
-	RESOURCE_ID_IMAGE_LOGO,             //6
-	RESOURCE_ID_IMAGE_ERR               //7
+	RESOURCE_ID_IMAGE_HOURGLASS_SMALL,        //4
+	RESOURCE_ID_IMAGE_QUESTION_MARKS_SMALL,   //5
+	RESOURCE_ID_IMAGE_LOGO_SMALL,             //6
+	RESOURCE_ID_IMAGE_ERR_SMALL               //7
 };
 	
 // INDEX FOR ARRAY OF SPECIAL VALUE ICONS
@@ -745,19 +745,19 @@ static void load_icon() {
 	const char DOUBLEDOWN_ARROW[] = "7";
 	const char NOTCOMPUTE_ICON[] = "8";
 	const char OUTOFRANGE_ICON[] = "9";
-	
+
 	// ARRAY OF ARROW ICON IMAGES
 	const uint8_t ARROW_ICONS[] = {
-	  RESOURCE_ID_IMAGE_NONE,     //0
-	  RESOURCE_ID_IMAGE_UPUP,     //1
-	  RESOURCE_ID_IMAGE_UP,       //2
-	  RESOURCE_ID_IMAGE_UP45,     //3
-	  RESOURCE_ID_IMAGE_FLAT,     //4
-	  RESOURCE_ID_IMAGE_DOWN45,   //5
-	  RESOURCE_ID_IMAGE_DOWN,     //6
-	  RESOURCE_ID_IMAGE_DOWNDOWN, //7
-	  RESOURCE_ID_IMAGE_LOGO,     //8
-	  RESOURCE_ID_IMAGE_ERR       //9
+	  RESOURCE_ID_IMAGE_NONE_SMALL,           //0
+	  RESOURCE_ID_IMAGE_UPUP_SMALL,           //1
+	  RESOURCE_ID_IMAGE_UP_SMALL,             //2
+	  RESOURCE_ID_IMAGE_UP45_SMALL,           //3
+	  RESOURCE_ID_IMAGE_FLAT_SMALL,           //4
+	  RESOURCE_ID_IMAGE_DOWN45_SMALL,         //5
+	  RESOURCE_ID_IMAGE_DOWN_SMALL,           //6
+	  RESOURCE_ID_IMAGE_DOWNDOWN_SMALL,       //7
+	  RESOURCE_ID_IMAGE_LOGO_SMALL,           //8
+	  RESOURCE_ID_IMAGE_ERR_SMALL,            //9
 	};
     
 	// INDEX FOR ARRAY OF ARROW ICON IMAGES
@@ -1037,7 +1037,7 @@ static void load_bg() {
 		specvalue_alert = true;
 	  }
 	  else if (current_bg < bg_ptr[SPECVALUE_BG_INDX]) {
-		//APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, UNEXPECTED SPECIAL VALUE: SET ERR ICON");
+		APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, UNEXPECTED SPECIAL VALUE: SET ERR ICON");
 		text_layer_set_text(bg_layer, "");
 		create_update_bitmap(&specialvalue_bitmap,icon_layer,SPECIAL_VALUE_ICONS[ERR_SPECVALUE_ICON_INDX]);
 		specvalue_alert = true;
@@ -1845,7 +1845,7 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
   case CGM_COB_KEY:;
    	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: CURRENT COB VALUE");
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: CURRENT COB VALUE IN, COPY LAST COB VALUE");
-      strncpy(last_cobvalue, new_tuple->value->cstring, BG_MSGSTR_SIZE);
+        strncpy(last_cobvalue, new_tuple->value->cstring, BG_MSGSTR_SIZE);
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: PHONE BATTERY LEVEL, CALL LOAD PBATTLEVEL");
       load_cobvalue();
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL OUT");
@@ -1967,7 +1967,7 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, text_layer_get_layer(message_layer));
 
   // ARROW OR SPECIAL VALUE
-  icon_layer = bitmap_layer_create(GRect(85, -7, 78, 50));
+  icon_layer = bitmap_layer_create(GRect(104, -6, 40, 40));
   bitmap_layer_set_alignment(icon_layer, GAlignTopLeft);
   bitmap_layer_set_background_color(icon_layer, GColorWhite);
   layer_add_child(window_layer_cgm, bitmap_layer_get_layer(icon_layer));
@@ -1987,10 +1987,10 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, text_layer_get_layer(time_app_layer));
   
   // BG
-  bg_layer = text_layer_create(GRect(0, -5, 95, 47));
+  bg_layer = text_layer_create(GRect(50, -5, 60, 47));
   text_layer_set_text_color(bg_layer, GColorBlack);
   text_layer_set_background_color(bg_layer, GColorWhite);
-  text_layer_set_font(bg_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
+  text_layer_set_font(bg_layer, fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK));
   text_layer_set_text_alignment(bg_layer, GTextAlignmentCenter);
   layer_add_child(window_layer_cgm, text_layer_get_layer(bg_layer));
 
@@ -2093,8 +2093,8 @@ void window_load_cgm(Window *window_cgm) {
 	TupletCString(CGM_UBAT_KEY, " "),
 	TupletCString(CGM_NAME_KEY, " "),
   TupletCString(CGM_PBAT_KEY, " "),
-  TupletCString(CGM_IOB_KEY, " "),
-  TupletCString(CGM_COB_KEY, " ")
+  TupletCString(CGM_IOB_KEY, " ")
+  //TupletCString(CGM_COB_KEY, " ")
   };
   
   //APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW LOAD, ABOUT TO CALL APP SYNC INIT");

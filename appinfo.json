@@ -18,6 +18,76 @@
     "resources": {
         "media": [
             {
+                "file": "images/questionmarkssmall.png",
+                "name": "IMAGE_QUESTION_MARKS_SMALL",
+                "type": "png"
+            },
+            {
+                "file": "images/nonesmall.png",
+                "name": "IMAGE_NONE_SMALL",
+                "type": "png"
+            },
+            {
+                "file": "images/logosmall.png",
+                "name": "IMAGE_LOGO_SMALL",
+                "type": "png"
+            },
+            {
+                "file": "images/hourglasssmall.png",
+                "name": "IMAGE_HOURGLASS_SMALL",
+                "type": "png"
+            },
+            {
+                "file": "images/errsmall.png",
+                "name": "IMAGE_ERR_SMALL",
+                "type": "png"
+            },
+            {
+                "file": "images/brokenantennasmall.png",
+                "name": "IMAGE_BROKEN_ANTENNA_SMALL",
+                "type": "png"
+            },
+            {
+                "file": "images/blooddropsmall.png",
+                "name": "IMAGE_BLOOD_DROP_SMALL",
+                "type": "png"
+            },
+            {
+                "file": "images/upup_small.png",
+                "name": "IMAGE_UPUP_SMALL",
+                "type": "png"
+            },
+            {
+                "file": "images/up45_small.png",
+                "name": "IMAGE_UP45_SMALL",
+                "type": "png"
+            },
+            {
+                "file": "images/up_small.png",
+                "name": "IMAGE_UP_SMALL",
+                "type": "png"
+            },
+            {
+                "file": "images/flat_small.png",
+                "name": "IMAGE_FLAT_SMALL",
+                "type": "png"
+            },
+            {
+                "file": "images/downdown_small.png",
+                "name": "IMAGE_DOWNDOWN_SMALL",
+                "type": "png"
+            },
+            {
+                "file": "images/down45_small.png",
+                "name": "IMAGE_DOWN45_SMALL",
+                "type": "png"
+            },
+            {
+                "file": "images/down_small.png",
+                "name": "IMAGE_DOWN_SMALL",
+                "type": "png"
+            },
+            {
                 "file": "images/err.png",
                 "name": "IMAGE_ERR",
                 "type": "png"
