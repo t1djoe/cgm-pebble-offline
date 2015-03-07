@@ -1778,7 +1778,7 @@ static void load_cobvalue() {
     }
      
     // get current IOB value and set IOB Value text with U
-    text_layer_set_text(current_cob_layer, strcat(last_iobvalue, "g"));
+    text_layer_set_text(current_cob_layer, strcat(last_cobvalue, "g"));
 	
 } // end load_cobvalue
 
@@ -2105,7 +2105,7 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, text_layer_get_layer(phone_battery_layer));
   
   // CURRENT IOB VALUE
-  current_iob_layer = text_layer_create(GRect(0, 130, 41, 20));
+  current_iob_layer = text_layer_create(GRect(0, 145, 51, 20));
   text_layer_set_text_color(current_iob_layer, GColorWhite);
   text_layer_set_background_color(current_iob_layer, GColorClear);
   text_layer_set_font(current_iob_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
@@ -2114,7 +2114,7 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, text_layer_get_layer(current_iob_layer));
   
     // CURRENT COB VALUE
-  current_cob_layer = text_layer_create(GRect(0, 145, 41, 21));
+  current_cob_layer = text_layer_create(GRect(0, 130, 51, 20));
   text_layer_set_text_color(current_cob_layer, GColorWhite);
   text_layer_set_background_color(current_cob_layer, GColorClear);
   text_layer_set_font(current_cob_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
