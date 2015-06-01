@@ -10,7 +10,7 @@
         "ubat": 5
     },
     "capabilities": [
-        "configurable"
+        ""
     ],
     "companyName": "DIYPanc",
     "longName": "DIYPanc",
@@ -193,7 +193,7 @@
     "sdkVersion": "2",
     "shortName": "DIYPanc",
     "uuid": "2c3f5ab3-7506-44e7-b8d0-2c63de32e1ec",
-    "versionCode": 11,
+    "versionCode": 1,
     "versionLabel": "5.2",
     "watchapp": {
         "watchface": true

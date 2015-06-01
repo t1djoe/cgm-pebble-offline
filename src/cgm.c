@@ -18,8 +18,8 @@ TextLayer *battery_layer = NULL;
 TextLayer *phone_battery_layer = NULL;
 TextLayer *current_iob_layer = NULL;
 TextLayer *current_cob_layer = NULL;
-TextLayer *previous_bg_layer = NULL;
-TextLayer *current_bgi_layer = NULL;
+TextLayer *raw_bg_layer = NULL;
+TextLayer *noise_layer = NULL;
 
 BitmapLayer *icon_layer = NULL;
 BitmapLayer *cgmicon_layer = NULL;
@@ -53,7 +53,8 @@ bool bluetooth_connected_cgm = true;
 // buffers have to be static and hardcoded
 static char current_icon[2];
 static char last_bg[6];
-static char last_pbg[6];
+static char last_raw_bg[6];
+static char last_noise[6];
 static int current_bg = 0;
 static bool currentBG_isMMOL = false;
 static char last_battlevel[4];
@@ -193,9 +194,9 @@ enum CgmKey {
 	CGM_NAME_KEY = 0x6,		// TUPLE_CSTRING, MAX 9 BYTES (Christine)
   CGM_PBAT_KEY = 0x7,		// TUPLE_CSTRING, MAX 3 BYTES (PHONE BATTERY, 100)
   CGM_IOB_KEY = 0x8,		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT IOB VALUE, 99.9)
-  CGM_COB_KEY = 0x9		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT COB VALUE, 99.9)
-  //CGM_BGI_KEY = 0xA,		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT BGI VALUE, 99.9)
-  //CGM_PBG_KEY = 0xB		// TUPLE_CSTRING, MAX 4 BYTES (PREVIOUS BG VALUE, 253 OR 22.2)
+  CGM_COB_KEY = 0x9,		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT COB VALUE, 99.9)
+  CGM_RAW_BG_KEY = 0xA,		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT RAW BG VALUE, 99.9)
+  CGM_NOISE_KEY = 0xB		// TUPLE_CSTRING, MAX 6 BYTES (CURRENT NOISE LEVEL)
 }; 
 // TOTAL MESSAGE DATA 4x3+2+5+3+9 = 31 BYTES
 // TOTAL KEY HEADER DATA (STRINGS) 4x6+2 = 26 BYTES
@@ -1325,14 +1326,25 @@ static void load_bg() {
 	
 } // end load_bg
 
-static void load_pbg() {
+static void load_raw() {
     //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD PBG, FUNCTION START");
 
  	  // CODE START
 	
     // Set text 
       
-	  text_layer_set_text(previous_bg_layer, last_pbg);
+	  text_layer_set_text(raw_bg_layer, last_raw_bg);
+
+} // end load_pbg
+
+static void load_noise() {
+    //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD PBG, FUNCTION START");
+
+ 	  // CODE START
+	
+    // Set text 
+      
+	  text_layer_set_text(noise_layer, last_noise);
 
 } // end load_pbg
 
@@ -1569,7 +1581,6 @@ static void load_bg_delta() {
       specvalue_alert = false;
       return;	
 	}
-
   	// check for DATA OFFLINE condition, if true set message to fix condition	
     if (strcmp(current_bg_delta, "ERR") == 0) {
       strncpy(formatted_bg_delta, "RSTRT PHONE", MSGLAYER_BUFFER_SIZE);
@@ -1867,11 +1878,17 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL OUT");
       break; // break for CGM_IOB_KEY        
 
-//	case CGM_PBG_KEY:;
+  case CGM_RAW_BG_KEY:;
 	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BG CURRENT");
-//      strncpy(last_pbg, new_tuple->value->cstring, BG_MSGSTR_SIZE);
-//      load_pbg();
-//      break; // break for CGM_PBG_KEY    
+      strncpy(last_raw_bg, new_tuple->value->cstring, BG_MSGSTR_SIZE);
+      load_raw();
+      break; // break for CGM_PBG_KEY    
+    
+  case CGM_NOISE_KEY:;
+	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BG CURRENT");
+      strncpy(last_noise, new_tuple->value->cstring, BG_MSGSTR_SIZE);
+      load_noise();
+      break; // break for CGM_PBG_KEY        
     
   }  // end switch(key)
 
@@ -2017,22 +2034,22 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, text_layer_get_layer(bg_layer));
 
   // PREVIOUS BG VALUE
-  previous_bg_layer = text_layer_create(GRect(0, 0, 50, 19));
-  text_layer_set_text_color(previous_bg_layer, GColorBlack);
-  text_layer_set_background_color(previous_bg_layer, GColorClear);
-  text_layer_set_font(previous_bg_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-  text_layer_set_text_alignment(previous_bg_layer, GTextAlignmentLeft);
-  text_layer_set_text(previous_bg_layer, "000");
-  layer_add_child(window_layer_cgm, text_layer_get_layer(previous_bg_layer));
+  raw_bg_layer = text_layer_create(GRect(0, 0, 50, 19));
+  text_layer_set_text_color(raw_bg_layer, GColorBlack);
+  text_layer_set_background_color(raw_bg_layer, GColorClear);
+  text_layer_set_font(raw_bg_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+  text_layer_set_text_alignment(raw_bg_layer, GTextAlignmentLeft);
+  text_layer_set_text(raw_bg_layer, "000");
+  layer_add_child(window_layer_cgm, text_layer_get_layer(raw_bg_layer));
   
   // CURRENT BGI VALUE
-  current_bgi_layer = text_layer_create(GRect(0, 18, 50, 19));
-  text_layer_set_text_color(current_bgi_layer, GColorBlack);
-  text_layer_set_background_color(current_bgi_layer, GColorClear);
-  text_layer_set_font(current_bgi_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-  text_layer_set_text_alignment(current_bgi_layer, GTextAlignmentLeft);
-  text_layer_set_text(current_bgi_layer, "BGI 0.0");
-  layer_add_child(window_layer_cgm, text_layer_get_layer(current_bgi_layer));
+  noise_layer = text_layer_create(GRect(0, 18, 50, 19));
+  text_layer_set_text_color(noise_layer, GColorBlack);
+  text_layer_set_background_color(noise_layer, GColorClear);
+  text_layer_set_font(noise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+  text_layer_set_text_alignment(noise_layer, GTextAlignmentLeft);
+  text_layer_set_text(noise_layer, "Clean");
+  layer_add_child(window_layer_cgm, text_layer_get_layer(noise_layer));
   
   // CGM TIME AGO ICON
   cgmicon_layer = bitmap_layer_create(GRect(5, 59, 40, 24));
@@ -2179,8 +2196,8 @@ void window_unload_cgm(Window *window_cgm) {
   destroy_null_TextLayer(&battery_layer);
   destroy_null_TextLayer(&current_iob_layer);
   destroy_null_TextLayer(&current_cob_layer);
-  destroy_null_TextLayer(&previous_bg_layer);
-  destroy_null_TextLayer(&current_bgi_layer);
+  destroy_null_TextLayer(&raw_bg_layer);
+  destroy_null_TextLayer(&noise_layer);
 
   //APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW UNLOAD, DESTROY INVERTER LAYERS IF EXIST");  
   destroy_null_InverterLayer(&inv_battlevel_layer);
