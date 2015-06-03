@@ -54,8 +54,10 @@ bool bluetooth_connected_cgm = true;
 static char current_icon[2];
 static char last_bg[6];
 static char last_raw_bg[6];
-static char last_noise[6];
+static char last_noise[1];
+static char noise_str[6];
 static int current_bg = 0;
+static int current_noise = 0;
 static bool currentBG_isMMOL = false;
 static char last_battlevel[4];
 static char last_pbattlevel[4];
@@ -196,7 +198,7 @@ enum CgmKey {
   CGM_IOB_KEY = 0x8,		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT IOB VALUE, 99.9)
   CGM_COB_KEY = 0x9,		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT COB VALUE, 99.9)
   CGM_RAW_BG_KEY = 0xA,		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT RAW BG VALUE, 99.9)
-  CGM_NOISE_KEY = 0xB		// TUPLE_CSTRING, MAX 6 BYTES (CURRENT NOISE LEVEL)
+  CGM_NOISE_KEY = 0xB		// TUPLE_CSTRING, MAX 2 BYTES (CURRENT NOISE LEVEL)
 }; 
 // TOTAL MESSAGE DATA 4x3+2+5+3+9 = 31 BYTES
 // TOTAL KEY HEADER DATA (STRINGS) 4x6+2 = 26 BYTES
@@ -963,7 +965,7 @@ static void load_bg() {
     // see if we're doing MGDL or MMOL; get currentBG_isMMOL value in myBGAtoi
 	// convert BG value from string to int
     //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BG, BGATOI IN, CURRENT_BG: %d LAST_BG: %s ", current_bg, last_bg);
-    current_bg = myBGAtoi(last_bg);
+  current_bg = myBGAtoi(last_bg);
     //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BG, BG ATOI OUT, CURRENT_BG: %d LAST_BG: %s ", current_bg, last_bg);
     
     //APP_LOG(APP_LOG_LEVEL_DEBUG, "LAST BG: %s", last_bg);
@@ -1343,8 +1345,7 @@ static void load_noise() {
  	  // CODE START
 	
     // Set text 
-      
-	  text_layer_set_text(noise_layer, last_noise);
+	  text_layer_set_text(noise_layer, noise_str);
 
 } // end load_pbg
 
@@ -1802,6 +1803,7 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
 	const uint8_t BG_MSGSTR_SIZE = 6;
 	const uint8_t BGDELTA_MSGSTR_SIZE = 6;
 	const uint8_t BATTLEVEL_MSGSTR_SIZE = 4;
+  const uint8_t NOISE_MSGSTR_SIZE = 1;
 
 	// CODE START
 	
@@ -1872,21 +1874,35 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
   case CGM_COB_KEY:;
    	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: CURRENT COB VALUE");
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: CURRENT COB VALUE IN, COPY LAST COB VALUE");
-        strncpy(last_cobvalue, new_tuple->value->cstring, BG_MSGSTR_SIZE);
+      strncpy(last_cobvalue, new_tuple->value->cstring, BG_MSGSTR_SIZE);
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: PHONE BATTERY LEVEL, CALL LOAD PBATTLEVEL");
       load_cobvalue();
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL OUT");
       break; // break for CGM_IOB_KEY        
 
   case CGM_RAW_BG_KEY:;
-	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BG CURRENT");
       strncpy(last_raw_bg, new_tuple->value->cstring, BG_MSGSTR_SIZE);
       load_raw();
       break; // break for CGM_PBG_KEY    
     
   case CGM_NOISE_KEY:;
 	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BG CURRENT");
-      strncpy(last_noise, new_tuple->value->cstring, BG_MSGSTR_SIZE);
+      strncpy(last_noise, new_tuple->value->cstring, NOISE_MSGSTR_SIZE);
+      current_noise = myAtoi(last_noise);      
+      if (current_noise == 0) {
+        strncpy(noise_str, "None", BG_MSGSTR_SIZE);}
+      if (current_noise == 1){
+        strncpy(noise_str, "Clean", BG_MSGSTR_SIZE);}
+      if (current_noise == 2){
+        strncpy(noise_str, "Light", BG_MSGSTR_SIZE);}
+      if (current_noise == 3){
+        strncpy(noise_str, "Medium", BG_MSGSTR_SIZE);}
+      if (current_noise == 4){
+        strncpy(noise_str, "Heavy", BG_MSGSTR_SIZE);}
+      if (current_noise == 5){
+        strncpy(noise_str, "NotCmp", BG_MSGSTR_SIZE);}
+      if (current_noise == 6){
+        strncpy(noise_str, "Max", BG_MSGSTR_SIZE);}
       load_noise();
       break; // break for CGM_PBG_KEY        
     
@@ -2033,7 +2049,7 @@ void window_load_cgm(Window *window_cgm) {
   text_layer_set_text_alignment(bg_layer, GTextAlignmentCenter);
   layer_add_child(window_layer_cgm, text_layer_get_layer(bg_layer));
 
-  // PREVIOUS BG VALUE
+  // RAW BG VALUE
   raw_bg_layer = text_layer_create(GRect(0, 0, 50, 19));
   text_layer_set_text_color(raw_bg_layer, GColorBlack);
   text_layer_set_background_color(raw_bg_layer, GColorClear);
@@ -2042,7 +2058,7 @@ void window_load_cgm(Window *window_cgm) {
   text_layer_set_text(raw_bg_layer, "000");
   layer_add_child(window_layer_cgm, text_layer_get_layer(raw_bg_layer));
   
-  // CURRENT BGI VALUE
+  // NOISE VALUE
   noise_layer = text_layer_create(GRect(0, 18, 50, 19));
   text_layer_set_text_color(noise_layer, GColorBlack);
   text_layer_set_background_color(noise_layer, GColorClear);
@@ -2151,7 +2167,9 @@ void window_load_cgm(Window *window_cgm) {
 	TupletCString(CGM_NAME_KEY, " "),
   TupletCString(CGM_PBAT_KEY, " "),
   TupletCString(CGM_IOB_KEY, " "),
-  TupletCString(CGM_COB_KEY, " ")
+  TupletCString(CGM_COB_KEY, " "),
+  TupletCString(CGM_RAW_BG_KEY, " "),
+  TupletCString(CGM_NOISE_KEY, " ")
   };
   
   //APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW LOAD, ABOUT TO CALL APP SYNC INIT");
