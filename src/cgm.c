@@ -9,7 +9,6 @@ TextLayer *tophalf_layer = NULL;
 TextLayer *bg_layer = NULL;
 TextLayer *cgmtime_layer = NULL;
 TextLayer *message_layer = NULL;    // BG DELTA & MESSAGE LAYER
-TextLayer *battlevel_layer = NULL;
 TextLayer *t1dname_layer = NULL;
 TextLayer *time_watch_layer = NULL;
 TextLayer *time_app_layer = NULL;
@@ -29,8 +28,6 @@ GBitmap *icon_bitmap = NULL;
 GBitmap *appicon_bitmap = NULL;
 GBitmap *cgmicon_bitmap = NULL;
 GBitmap *specialvalue_bitmap = NULL;
-
-InverterLayer *inv_battlevel_layer = NULL;
 
 static char time_watch_text[] = "00:00";
 static char date_app_text[] = "Wed 13 ";
@@ -1668,56 +1665,6 @@ static void load_battlevel() {
     //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, FUNCTION START");
 
 	// CONSTANTS
-	const uint8_t BATTLEVEL_FORMATTED_SIZE = 6;
-	
-	// VARIABLES
-	// NOTE: buffers have to be static and hardcoded
-	int current_battlevel = 0;
-	static char battlevel_percent[6];
-	
-	// CODE START
-	
-	// initialize inverter layer to hide
-	layer_set_hidden((Layer *)inv_battlevel_layer, true);
-    
-	//APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BATTLEVEL, LAST BATTLEVEL: %s", last_battlevel);
-  
-	if (strcmp(last_battlevel, " ") == 0) {
-      // Init code or no battery, can't do battery; set text layer & icon to empty value 
-      //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, NO BATTERY");
-      text_layer_set_text(battlevel_layer, "");
-      LowBatteryAlert = false;	  
-      return;
-    }
-  
-	if (strcmp(last_battlevel, "0") == 0) {
-      // Zero battery level; set here, so if we get zero later we know we have an error instead
-      //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, ZERO BATTERY, SET STRING");
-      text_layer_set_text(battlevel_layer, "0%");
-      layer_set_hidden((Layer *)inv_battlevel_layer, false);
-      if (!LowBatteryAlert) {
-		//APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, ZERO BATTERY, VIBRATE");
-		LowBatteryAlert = true;
-      }	  
-      //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, ZERO BATTERY, SET ICON");
-      return;
-    }
-  
-	current_battlevel = myAtoi(last_battlevel);
-  
-	//APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BATTLEVEL, CURRENT BATTLEVEL: %i", current_battlevel);
-  
-	if ((current_battlevel <= 0) || (current_battlevel > 100) || (last_battlevel[0] == '-')) { 
-      // got a negative or out of bounds or error battery level
-	  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, UNKNOWN, ERROR BATTERY");
-	  text_layer_set_text(battlevel_layer, "ERR");
-	  layer_set_hidden((Layer *)inv_battlevel_layer, false);
-    return;
-	}
-      
-    // get current battery level and set battery level text with percent
-    snprintf(battlevel_percent, BATTLEVEL_FORMATTED_SIZE, "%i%%", current_battlevel);
-    text_layer_set_text(battlevel_layer, battlevel_percent);
 	
 	//APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, END FUNCTION");
 } // end load_battlevel
@@ -2082,25 +2029,13 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, text_layer_get_layer(cgmtime_layer));
 
   // T1D NAME
-  t1dname_layer = text_layer_create(GRect(55, 144, 50, 18));
+  t1dname_layer = text_layer_create(GRect(55, 144, 88, 18));
   text_layer_set_text_color(t1dname_layer, GColorWhite);
   text_layer_set_background_color(t1dname_layer, GColorClear);
   text_layer_set_font(t1dname_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(t1dname_layer, GTextAlignmentLeft);
+  text_layer_set_text(t1dname_layer, "No Change");
   layer_add_child(window_layer_cgm, text_layer_get_layer(t1dname_layer));
-
-  // BATTERY LEVEL
-  battlevel_layer = text_layer_create(GRect(105, 144, 41, 18));
-  text_layer_set_text_color(battlevel_layer, GColorWhite);
-  text_layer_set_background_color(battlevel_layer, GColorClear);
-  text_layer_set_font(battlevel_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-  text_layer_set_text_alignment(battlevel_layer, GTextAlignmentRight);
-  text_layer_set_text(battlevel_layer, "100%");
-  layer_add_child(window_layer_cgm, text_layer_get_layer(battlevel_layer));
-  
-  // INVERTER BATTERY LAYER
-  inv_battlevel_layer = inverter_layer_create(GRect(105, 148, 41, 18));
-  layer_add_child(window_get_root_layer(window_cgm), inverter_layer_get_layer(inv_battlevel_layer));
   
   // CURRENT ACTUAL TIME FROM WATCH
   time_watch_layer = text_layer_create(GRect(0, 95, 144, 44));
@@ -2206,7 +2141,6 @@ void window_unload_cgm(Window *window_cgm) {
   destroy_null_TextLayer(&bg_layer);
   destroy_null_TextLayer(&cgmtime_layer);
   destroy_null_TextLayer(&message_layer);
-  destroy_null_TextLayer(&battlevel_layer);
   destroy_null_TextLayer(&t1dname_layer);
   destroy_null_TextLayer(&time_watch_layer);
   destroy_null_TextLayer(&time_app_layer);
@@ -2216,9 +2150,6 @@ void window_unload_cgm(Window *window_cgm) {
   destroy_null_TextLayer(&current_cob_layer);
   destroy_null_TextLayer(&raw_bg_layer);
   destroy_null_TextLayer(&noise_layer);
-
-  //APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW UNLOAD, DESTROY INVERTER LAYERS IF EXIST");  
-  destroy_null_InverterLayer(&inv_battlevel_layer);
   
   //APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW UNLOAD OUT");
 } // end window_unload_cgm
