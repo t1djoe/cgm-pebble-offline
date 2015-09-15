@@ -1,10 +1,15 @@
 {
     "appKeys": {
         "bg": 1,
+        "bgi": 12,
+        "cob": 9,
         "dlta": 4,
         "icon": 0,
+        "iob": 8,
         "name": 6,
+        "noise": 11,
         "pbat": 7,
+        "rawbg": 10,
         "tapp": 3,
         "tcgm": 2,
         "ubat": 5
@@ -12,8 +17,8 @@
     "capabilities": [
         ""
     ],
-    "companyName": "DIYPanc",
-    "longName": "DIYPanc",
+    "companyName": "roboPanc",
+    "longName": "roboPanc",
     "projectType": "native",
     "resources": {
         "media": [
@@ -191,8 +196,8 @@
         ]
     },
     "sdkVersion": "2",
-    "shortName": "DIYPanc",
-    "uuid": "2c3f5ab3-7506-44e7-b8d0-2c63de32e1ec",
+    "shortName": "roboPanc",
+    "uuid": "7804057e-a05b-4671-ac3e-4bab630716ba",
     "versionCode": 1,
     "versionLabel": "5.2",
     "watchapp": {
