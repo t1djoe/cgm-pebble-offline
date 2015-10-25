@@ -37,7 +37,7 @@ static char date_app_text[] = "Wed 13 ";
 AppSync sync_cgm;  
 // CGM message is 57 bytes
 // Pebble needs additional 62 Bytes?!? Pad with additional 20 bytes
-static uint8_t sync_buffer_cgm[1024];
+static uint8_t sync_buffer_cgm[157];
 
 // variables for timers and time
 AppTimer *timer_cgm = NULL;
@@ -1877,7 +1877,7 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
   const uint8_t BGI_MSGSTR_SIZE = 16;
 	const uint8_t BGDELTA_MSGSTR_SIZE = 6;
 	const uint8_t BATTLEVEL_MSGSTR_SIZE = 4;
-  const uint8_t NOISE_MSGSTR_SIZE = 1;
+  const uint8_t NOISE_MSGSTR_SIZE = 6;
 
 	// CODE START
 	
@@ -1961,22 +1961,22 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
     
   case CGM_NOISE_KEY:;
 	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BG CURRENT");
-      strncpy(last_noise, new_tuple->value->cstring, NOISE_MSGSTR_SIZE);
+      strncpy(last_noise, new_tuple->value->cstring, 1);
       current_noise = myAtoi(last_noise);      
       if (current_noise == 0) {
-        strncpy(noise_str, "None", BG_MSGSTR_SIZE);}
+        strncpy(noise_str, "None", NOISE_MSGSTR_SIZE);}
       if (current_noise == 1){
-        strncpy(noise_str, "Clean", BG_MSGSTR_SIZE);}
+        strncpy(noise_str, "Clean", NOISE_MSGSTR_SIZE);}
       if (current_noise == 2){
-        strncpy(noise_str, "Light", BG_MSGSTR_SIZE);}
+        strncpy(noise_str, "Light", NOISE_MSGSTR_SIZE);}
       if (current_noise == 3){
-        strncpy(noise_str, "Medium", BG_MSGSTR_SIZE);}
+        strncpy(noise_str, "Medium", NOISE_MSGSTR_SIZE);}
       if (current_noise == 4){
-        strncpy(noise_str, "Heavy", BG_MSGSTR_SIZE);}
+        strncpy(noise_str, "Heavy", NOISE_MSGSTR_SIZE);}
       if (current_noise == 5){
-        strncpy(noise_str, "NotCmp", BG_MSGSTR_SIZE);}
+        strncpy(noise_str, "NotCmp", NOISE_MSGSTR_SIZE);}
       if (current_noise == 6){
-        strncpy(noise_str, "Max", BG_MSGSTR_SIZE);}
+        strncpy(noise_str, "Max", NOISE_MSGSTR_SIZE);}
       load_noise();
       break; // break for CGM_PBG_KEY        
     
