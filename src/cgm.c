@@ -52,23 +52,26 @@ const uint8_t BATTLEVEL_FORMATTED_SIZE = 8;
 
 // global variables for sync tuple functions
 // buffers have to be static and hardcoded
-static char current_icon[2];
-static char last_bg[6];
-static char last_raw_bg[6];
-static char last_bgi_value[16];
-static char last_noise[1];
+static uint16_t current_icon;
+static uint16_t last_bg;
+static uint16_t last_raw_bg;
+static uint16_t last_bgi_value;
+static uint8_t last_noise;
 static char noise_str[6];
 static int current_bg = 0;
 static int current_noise = 0;
 static bool currentBG_isMMOL = false;
-static char last_battlevel[4];
-static char last_pbattlevel[4];
+static uint16_t last_battlevel;
+static uint16_t last_pbattlevel;
 static char last_iobvalue[6];
 static char last_cobvalue[6];
 static uint32_t current_cgm_time = 0;
 static uint32_t current_app_time = 0;
 static char current_bg_delta[10];
 static int converted_bgDelta = 0;
+static char current_bg_str[6];
+static char raw_bg_str[6];
+static char bgi_str[6];
 
 // global BG snooze timer
 static uint8_t lastAlertTime = 0;
@@ -366,6 +369,32 @@ int myBGAtoi(char *str) {
  //APP_LOG(APP_LOG_LEVEL_DEBUG, "myBGAtoi, FINAL RESULT OUT: %i", res );
     return res;
 } // end myBGAtoi
+
+char *itoa(int num) {  
+
+  static char buff[20] = {};
+  int i = 0, temp_num = num, length = 0;
+  char *string = buff;
+  if (num >= 0) {
+    // count how many characters in the number
+    while(temp_num) {
+    temp_num /= 10;
+    length++;
+    }
+  // assign the number to the buffer starting at the end of the 
+  // number and going to the begining since we are doing the
+  // integer to character conversion on the last number in the
+  // sequence
+  for(i = 0; i < length; i++) {
+    buff[(length-1)-i] = '0' + (num % 10);
+    num /= 10;
+  }
+  buff[i] = '\0'; // can't forget the null byte to properly end our string
+  }
+  else
+    return "Unsupported Number";
+return string;
+}
 
 static void destroy_null_GBitmap(GBitmap **GBmp_image) {
 	//APP_LOG(APP_LOG_LEVEL_INFO, "DESTROY NULL GBITMAP: ENTER CODE");
@@ -863,16 +892,16 @@ static void load_icon() {
 	// CONSTANTS
 	
 	// ICON ASSIGNMENTS OF ARROW DIRECTIONS
-	const char NO_ARROW[] = "0";
-	const char DOUBLEUP_ARROW[] = "1";
-	const char SINGLEUP_ARROW[] = "2";
-	const char UP45_ARROW[] = "3";
-	const char FLAT_ARROW[] = "4";
-	const char DOWN45_ARROW[] = "5";
-	const char SINGLEDOWN_ARROW[] = "6";
-	const char DOUBLEDOWN_ARROW[] = "7";
-	const char NOTCOMPUTE_ICON[] = "8";
-	const char OUTOFRANGE_ICON[] = "9";
+	const uint8_t NO_ARROW = 0;
+	const uint8_t DOUBLEUP_ARROW = 1;
+	const uint8_t SINGLEUP_ARROW = 2;
+	const uint8_t UP45_ARROW = 3;
+	const uint8_t FLAT_ARROW = 4;
+	const uint8_t DOWN45_ARROW = 5;
+	const uint8_t SINGLEDOWN_ARROW = 6;
+	const uint8_t DOUBLEDOWN_ARROW = 7;
+	const uint8_t NOTCOMPUTE_ICON = 8;
+	const uint8_t OUTOFRANGE_ICON = 9;
 
 	// ARRAY OF ARROW ICON IMAGES
 	const uint8_t ARROW_ICONS[] = {
@@ -907,35 +936,35 @@ static void load_icon() {
 	  // no special value, set arrow
       // check for arrow direction, set proper arrow icon
 	  //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD ICON, CURRENT ICON: %s", current_icon);
-      if ( (strcmp(current_icon, NO_ARROW) == 0) || (strcmp(current_icon, NOTCOMPUTE_ICON) == 0) || (strcmp(current_icon, OUTOFRANGE_ICON) == 0) ) {
+      if ((current_icon == NO_ARROW) || (current_icon == NOTCOMPUTE_ICON) || (current_icon == OUTOFRANGE_ICON)) {
 	    create_update_bitmap(&icon_bitmap,icon_layer,ARROW_ICONS[NONE_ARROW_ICON_INDX]);
 	    DoubleDownAlert = false;
       } 
-      else if (strcmp(current_icon, DOUBLEUP_ARROW) == 0) {
+      else if (current_icon == DOUBLEUP_ARROW) {
 	    create_update_bitmap(&icon_bitmap,icon_layer,ARROW_ICONS[UPUP_ICON_INDX]);
 	    DoubleDownAlert = false;
       }
-      else if (strcmp(current_icon, SINGLEUP_ARROW) == 0) {
+      else if (current_icon == SINGLEUP_ARROW) {
 	    create_update_bitmap(&icon_bitmap,icon_layer,ARROW_ICONS[UP_ICON_INDX]);
 	    DoubleDownAlert = false;
       }
-      else if (strcmp(current_icon, UP45_ARROW) == 0) {
+      else if (current_icon == UP45_ARROW) {
         create_update_bitmap(&icon_bitmap,icon_layer,ARROW_ICONS[UP45_ICON_INDX]);
 	    DoubleDownAlert = false;
       }
-      else if (strcmp(current_icon, FLAT_ARROW) == 0) {
+      else if (current_icon == FLAT_ARROW) {
         create_update_bitmap(&icon_bitmap,icon_layer,ARROW_ICONS[FLAT_ICON_INDX]);
 	    DoubleDownAlert = false;
       }
-      else if (strcmp(current_icon, DOWN45_ARROW) == 0) {
+      else if (current_icon == DOWN45_ARROW) {
 	    create_update_bitmap(&icon_bitmap,icon_layer,ARROW_ICONS[DOWN45_ICON_INDX]);
 	    DoubleDownAlert = false;
       }
-      else if (strcmp(current_icon, SINGLEDOWN_ARROW) == 0) {
+      else if (current_icon == SINGLEDOWN_ARROW) {
         create_update_bitmap(&icon_bitmap,icon_layer,ARROW_ICONS[DOWN_ICON_INDX]);
 	    DoubleDownAlert = false;
       }
-      else if (strcmp(current_icon, DOUBLEDOWN_ARROW) == 0) {
+      else if (current_icon == DOUBLEDOWN_ARROW) {
 	    if (!DoubleDownAlert) {
 	      //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD ICON, ICON ARROW: DOUBLE DOWN");
         alert_handler_cgm(DOUBLEDOWN_VIBE);
@@ -984,20 +1013,6 @@ static void load_bg() {
 	  BIGHIGH_BG_MGDL,		//8
 	  SHOWHIGH_BG_MGDL		//9
 	};
-	
-	// ARRAY OF BG CONSTANTS; MMOL
-	uint16_t BG_MMOL[] = {
-	  SPECVALUE_BG_MMOL,	//0
-	  SHOWLOW_BG_MMOL,		//1
-	  HYPOLOW_BG_MMOL,		//2
-	  BIGLOW_BG_MMOL,		//3
-	  MIDLOW_BG_MMOL,		//4
-	  LOW_BG_MMOL,			//5
-	  HIGH_BG_MMOL,			//6
-	  MIDHIGH_BG_MMOL,		//7
-	  BIGHIGH_BG_MMOL,		//8
-	  SHOWHIGH_BG_MMOL		//9
-	};
     
 	// INDEX FOR ARRAYS OF BG CONSTANTS
 	const uint8_t SPECVALUE_BG_INDX = 0;
@@ -1021,17 +1036,6 @@ static void load_bg() {
 	const uint8_t HOURGLASS_VALUE_MGDL = 9;				// show hourglass, hourglass
 	const uint8_t QUESTION_MARKS_VALUE_MGDL = 10;		// show ???, ???
 	const uint8_t BAD_RF_VALUE_MGDL = 12;				// show broken antenna, ?RF
-
-	// MMOL SPECIAL VALUE CONSTANTS ACTUAL VALUES
-	// mmol = mg/dL / 18.0182 OR mmol = mg/dL * .0555
-	const uint8_t SENSOR_NOT_ACTIVE_VALUE_MMOL = 1;		// show stop light, ?SN (.06 -> .1)
-	const uint8_t MINIMAL_DEVIATION_VALUE_MMOL = 1;		// show stop light, ?MD (.11 -> .1)
-	const uint8_t NO_ANTENNA_VALUE_MMOL = 2;				// show broken antenna, ?NA (.17 -> .2)
-	const uint8_t SENSOR_NOT_CALIBRATED_VALUE_MMOL = 3;	// show blood drop, ?NC (.28 -> .3)
-	const uint8_t STOP_LIGHT_VALUE_MMOL = 4;				// show stop light, ?CD (.33 -> .3, set to .4 here)
-	const uint8_t HOURGLASS_VALUE_MMOL = 5;				// show hourglass, hourglass (.50 -> .5)
-	const uint8_t QUESTION_MARKS_VALUE_MMOL = 6;			// show ???, ??? (.56 -> .6)
-	const uint8_t BAD_RF_VALUE_MMOL = 7;					// show broken antenna, ?RF (.67 -> .7)
 	
 	// ARRAY OF SPECIAL VALUES CONSTANTS; MGDL
 	uint8_t SPECVALUE_MGDL[] = {
@@ -1044,19 +1048,7 @@ static void load_bg() {
 	  QUESTION_MARKS_VALUE_MGDL,		//6
 	  BAD_RF_VALUE_MGDL					//7
 	};
-	
-	// ARRAY OF SPECIAL VALUES CONSTANTS; MMOL
-	uint8_t SPECVALUE_MMOL[] = {
-	  SENSOR_NOT_ACTIVE_VALUE_MMOL,		//0	
-	  MINIMAL_DEVIATION_VALUE_MMOL,		//1
-	  NO_ANTENNA_VALUE_MMOL,			//2
-	  SENSOR_NOT_CALIBRATED_VALUE_MMOL,	//3
-	  STOP_LIGHT_VALUE_MMOL,			//4
-	  HOURGLASS_VALUE_MMOL,				//5
-	  QUESTION_MARKS_VALUE_MMOL,		//6
-	  BAD_RF_VALUE_MMOL					//7
-	};
-	
+		
 	// INDEX FOR ARRAYS OF SPECIAL VALUES CONSTANTS
 	const uint8_t SENSOR_NOT_ACTIVE_VALUE_INDX = 0;
 	const uint8_t MINIMAL_DEVIATION_VALUE_INDX = 1;
@@ -1073,6 +1065,8 @@ static void load_bg() {
 	uint16_t *bg_ptr = NULL;
 	uint8_t *specvalue_ptr = NULL;
 	
+  char *str;
+  
 	// CODE START
 	
 	// if special value set, erase anything in the icon field
@@ -1086,25 +1080,19 @@ static void load_bg() {
     // see if we're doing MGDL or MMOL; get currentBG_isMMOL value in myBGAtoi
 	// convert BG value from string to int
     //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BG, BGATOI IN, CURRENT_BG: %d LAST_BG: %s ", current_bg, last_bg);
-  current_bg = myBGAtoi(last_bg);
+  current_bg = last_bg;
     //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BG, BG ATOI OUT, CURRENT_BG: %d LAST_BG: %s ", current_bg, last_bg);
     
     //APP_LOG(APP_LOG_LEVEL_DEBUG, "LAST BG: %s", last_bg);
 	//APP_LOG(APP_LOG_LEVEL_DEBUG, "CURRENT BG: %i", current_bg);
     
-    if (!currentBG_isMMOL) {
-	  bg_ptr = BG_MGDL;
-	  specvalue_ptr = SPECVALUE_MGDL;
-	}
-	else {
-	  bg_ptr = BG_MMOL;
-	  specvalue_ptr = SPECVALUE_MMOL;
-    }
+  bg_ptr = BG_MGDL;
+  specvalue_ptr = SPECVALUE_MGDL;
 	
     // BG parse, check snooze, and set text 
       
     // check for init code or error code
-    if ((current_bg <= 0) || (last_bg[0] == '-')) {
+    if ((current_bg <= 0) || (last_bg == 0)) {
       lastAlertTime = 0;
       
       // check bluetooth
@@ -1187,8 +1175,11 @@ static void load_bg() {
 		}
 		else {
 		  // else update with current BG
-          //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BG, SET TO BG: %s ", last_bg);
-		  text_layer_set_text(bg_layer, last_bg);
+      //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD CURRENT_BG, SET TO BG: %d ", current_bg);
+      //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD LAST_BG, SET TO BG: %d ", last_bg);
+      snprintf(current_bg_str, sizeof(current_bg_str), "%d", current_bg);
+      text_layer_set_text(bg_layer, current_bg_str);
+      //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BG, SET TO BG: %s ", itoa(current_bg));
 		}
 	  } // end bg checks (if special_value_bitmap)
   
@@ -1464,7 +1455,11 @@ static void load_raw() {
 	
     // Set text 
       
-	  text_layer_set_text(raw_bg_layer, last_raw_bg);
+	  //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD RAW BG, SET TO RAW BG: %d ", last_raw_bg);
+    //text_layer_set_text(raw_bg_layer, itoa(last_raw_bg));
+    snprintf(raw_bg_str, sizeof(raw_bg_str), "%d", last_raw_bg);
+    text_layer_set_text(raw_bg_layer, raw_bg_str);  
+    //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD RAW BG, SET TO RAW BG: %s ", itoa(last_raw_bg));
 
 } // end load_pbg
 
@@ -1484,7 +1479,11 @@ static void load_bgi() {
  	  // CODE START
 	
     // Set text 
-	  text_layer_set_text(bgi_layer, last_bgi_value);
+    //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BGI, SET TO BGI: %d ", last_bgi_value);
+	  //text_layer_set_text(bgi_layer, itoa(last_bgi_value));
+    snprintf(bgi_str, sizeof(bgi_str), "%d", last_bgi_value);
+    text_layer_set_text(bgi_layer, bgi_str);
+    //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BGI, SET TO BGI: %s ", itoa(last_bgi_value));
 
 } // end load_pbg
 
@@ -1810,18 +1809,18 @@ static void load_pbattlevel() {
     
 	//APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BATTLEVEL, LAST BATTLEVEL: %s", last_pbattlevel);
   
-	if (strcmp(last_pbattlevel, " ") == 0) {
+	if (last_pbattlevel == 0) {
       // Init code or no battery, can't do battery; set text layer & icon to empty value 
       //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, NO BATTERY");
       text_layer_set_text(phone_battery_layer, "");
       return;
     }
   
-	current_pbattlevel = myAtoi(last_pbattlevel);
+	current_pbattlevel = last_pbattlevel;
   
 	//APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BATTLEVEL, CURRENT BATTLEVEL: %i", current_pbattlevel);
   
-	if ((current_pbattlevel <= 0) || (current_pbattlevel > 100) || (last_pbattlevel[0] == '-')) { 
+	if ((current_pbattlevel <= 0) || (current_pbattlevel > 100) || (last_pbattlevel == 0)) { 
       // got a negative or out of bounds or error battery level
 	  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BATTLEVEL, UNKNOWN, ERROR BATTERY");
 	  text_layer_set_text(phone_battery_layer, "ERR");
@@ -1872,12 +1871,12 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
 	//APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE");
 	
 	// CONSTANTS
-	const uint8_t ICON_MSGSTR_SIZE = 4;
 	const uint8_t BG_MSGSTR_SIZE = 6;
-  const uint8_t BGI_MSGSTR_SIZE = 16;
+  //const uint8_t BGI_MSGSTR_SIZE = 16;
 	const uint8_t BGDELTA_MSGSTR_SIZE = 6;
-	const uint8_t BATTLEVEL_MSGSTR_SIZE = 4;
+	//const uint8_t BATTLEVEL_MSGSTR_SIZE = 4;
   const uint8_t NOISE_MSGSTR_SIZE = 6;
+  const uint8_t NOISE_STR_SIZE = 1;
 
 	// CODE START
 	
@@ -1885,13 +1884,13 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
 
 	case CGM_ICON_KEY:;
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: ICON ARROW");
-      strncpy(current_icon, new_tuple->value->cstring, ICON_MSGSTR_SIZE);
+      current_icon = new_tuple->value->uint16;
 	    load_icon();
       break; // break for CGM_ICON_KEY
 
 	case CGM_BG_KEY:;
 	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BG CURRENT");
-      strncpy(last_bg, new_tuple->value->cstring, BG_MSGSTR_SIZE);
+      last_bg = new_tuple->value->uint32;
       load_bg();
       break; // break for CGM_BG_KEY
 
@@ -1916,7 +1915,7 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
 	case CGM_UBAT_KEY:;
    	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: UPLOADER BATTERY LEVEL");
    	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL IN, COPY LAST BATTLEVEL");
-      strncpy(last_battlevel, new_tuple->value->cstring, BATTLEVEL_MSGSTR_SIZE);
+      last_battlevel = new_tuple->value->uint16;
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL, CALL LOAD BATTLEVEL");
       load_battlevel();
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL OUT");
@@ -1930,7 +1929,7 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
 	case CGM_PBAT_KEY:;
    	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: UPLOADER BATTERY LEVEL");
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: PHONE BATTERY LEVEL IN, COPY LAST PBATTLEVEL");
-      strncpy(last_pbattlevel, new_tuple->value->cstring, BATTLEVEL_MSGSTR_SIZE);
+      last_pbattlevel = new_tuple->value->uint16;
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: PHONE BATTERY LEVEL, CALL LOAD PBATTLEVEL");
       load_pbattlevel();
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BATTERY LEVEL OUT");
@@ -1955,33 +1954,35 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
       break; // break for CGM_IOB_KEY        
 
   case CGM_RAW_BG_KEY:;
-      strncpy(last_raw_bg, new_tuple->value->cstring, BG_MSGSTR_SIZE);
+      last_raw_bg = new_tuple->value->uint32;
       load_raw();
       break; // break for CGM_PBG_KEY    
     
   case CGM_NOISE_KEY:;
 	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BG CURRENT");
-      strncpy(last_noise, new_tuple->value->cstring, 1);
-      current_noise = myAtoi(last_noise);      
+      last_noise = new_tuple->value->uint8;
+      current_noise = last_noise;      
       if (current_noise == 0) {
         strncpy(noise_str, "None", NOISE_MSGSTR_SIZE);}
-      if (current_noise == 1){
+      else if (current_noise == 1){
         strncpy(noise_str, "Clean", NOISE_MSGSTR_SIZE);}
-      if (current_noise == 2){
+      else if (current_noise == 2){
         strncpy(noise_str, "Light", NOISE_MSGSTR_SIZE);}
-      if (current_noise == 3){
+      else if (current_noise == 3){
         strncpy(noise_str, "Medium", NOISE_MSGSTR_SIZE);}
-      if (current_noise == 4){
+      else if (current_noise == 4){
         strncpy(noise_str, "Heavy", NOISE_MSGSTR_SIZE);}
-      if (current_noise == 5){
+      else if (current_noise == 5){
         strncpy(noise_str, "NotCmp", NOISE_MSGSTR_SIZE);}
-      if (current_noise == 6){
+      else if (current_noise == 6){
         strncpy(noise_str, "Max", NOISE_MSGSTR_SIZE);}
+      else{
+        strncpy(noise_str, "ERR", NOISE_MSGSTR_SIZE);}
       load_noise();
       break; // break for CGM_PBG_KEY        
     
       case CGM_BGI_KEY:;
-      strncpy(last_bgi_value, new_tuple->value->cstring, BGI_MSGSTR_SIZE);
+      last_bgi_value = new_tuple->value->uint32;
       load_bgi();
       break; // break for CGM_PBG_KEY   
     
@@ -2260,7 +2261,7 @@ void window_load_cgm(Window *window_cgm) {
   }
   timer_cgm = app_timer_register((LOADING_MSGSEND_SECS*MS_IN_A_SECOND), timer_callback_cgm, NULL);
   //APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW LOAD, TIMER REGISTER DONE");
-  APP_LOG(APP_LOG_LEVEL_INFO, "last_pbattlevel: %s", last_pbattlevel);
+  APP_LOG(APP_LOG_LEVEL_INFO, "last_pbattlevel: %d", last_pbattlevel);
 } // end window_load_cgm
 
 void window_unload_cgm(Window *window_cgm) {
