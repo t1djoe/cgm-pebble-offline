@@ -1,0 +1,213 @@
+{
+    "author": "roboPanc",
+    "dependencies": {},
+    "keywords": [],
+    "name": "robopanc",
+    "pebble": {
+        "capabilities": [
+            ""
+        ],
+        "displayName": "roboPanc",
+        "enableMultiJS": false,
+        "messageKeys": {
+            "bg": 1,
+            "bgi": 12,
+            "cob": 9,
+            "dlta": 4,
+            "icon": 0,
+            "iob": 8,
+            "name": 6,
+            "noise": 11,
+            "pbat": 7,
+            "rawbg": 10,
+            "tapp": 3,
+            "tcgm": 2,
+            "ubat": 5
+        },
+        "projectType": "native",
+        "resources": {
+            "media": [
+                {
+                    "file": "images/menuicon.png",
+                    "menuIcon": true,
+                    "name": "IMAGE_MENU_ICON",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/questionmarkssmall.png",
+                    "name": "IMAGE_QUESTION_MARKS_SMALL",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/nonesmall.png",
+                    "name": "IMAGE_NONE_SMALL",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/logosmall.png",
+                    "name": "IMAGE_LOGO_SMALL",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/hourglasssmall.png",
+                    "name": "IMAGE_HOURGLASS_SMALL",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/errsmall.png",
+                    "name": "IMAGE_ERR_SMALL",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/brokenantennasmall.png",
+                    "name": "IMAGE_BROKEN_ANTENNA_SMALL",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/blooddropsmall.png",
+                    "name": "IMAGE_BLOOD_DROP_SMALL",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/upup_small.png",
+                    "name": "IMAGE_UPUP_SMALL",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/up45_small.png",
+                    "name": "IMAGE_UP45_SMALL",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/up_small.png",
+                    "name": "IMAGE_UP_SMALL",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/flat_small.png",
+                    "name": "IMAGE_FLAT_SMALL",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/downdown_small.png",
+                    "name": "IMAGE_DOWNDOWN_SMALL",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/down45_small.png",
+                    "name": "IMAGE_DOWN45_SMALL",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/down_small.png",
+                    "name": "IMAGE_DOWN_SMALL",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/err.png",
+                    "name": "IMAGE_ERR",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/rcvroff.png",
+                    "name": "IMAGE_RCVROFF",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/rcvron.png",
+                    "name": "IMAGE_RCVRON",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/phoneoff.png",
+                    "name": "IMAGE_PHONEOFF",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/phoneon.png",
+                    "name": "IMAGE_PHONEON",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/brokenantenna.png",
+                    "name": "IMAGE_BROKEN_ANTENNA",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/logo.png",
+                    "name": "IMAGE_LOGO",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/none.png",
+                    "name": "IMAGE_NONE",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/down45.png",
+                    "name": "IMAGE_DOWN45",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/downdown.png",
+                    "name": "IMAGE_DOWNDOWN",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/down.png",
+                    "name": "IMAGE_DOWN",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/flat.png",
+                    "name": "IMAGE_FLAT",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/up45.png",
+                    "name": "IMAGE_UP45",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/upup.png",
+                    "name": "IMAGE_UPUP",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/up.png",
+                    "name": "IMAGE_UP",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/questionmarks.png",
+                    "name": "IMAGE_QUESTION_MARKS",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/hourglass.png",
+                    "name": "IMAGE_HOURGLASS",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/stoplight.png",
+                    "name": "IMAGE_STOP_LIGHT",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/blooddrop.png",
+                    "name": "IMAGE_BLOOD_DROP",
+                    "type": "bitmap"
+                }
+            ]
+        },
+        "sdkVersion": "3",
+        "targetPlatforms": [
+            "aplite"
+        ],
+        "uuid": "7804057e-a05b-4671-ac3e-4bab630716ba",
+        "watchapp": {
+            "watchface": true
+        }
+    },
+    "version": "5.2.0"
+}

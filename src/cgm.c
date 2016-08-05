@@ -1,4 +1,6 @@
 #include "pebble.h"
+#define WORKER_CGM_TIME 42
+#define PERSIST_CGM_TIME 52
 
 // global window variables
 // ANYTHING THAT IS CALLED BY PEBBLE API HAS TO BE NOT STATIC
@@ -17,9 +19,11 @@ TextLayer *battery_layer = NULL;
 TextLayer *phone_battery_layer = NULL;
 TextLayer *current_iob_layer = NULL;
 TextLayer *current_cob_layer = NULL;
+TextLayer *watch_battlevel_layer = NULL;
 TextLayer *raw_bg_layer = NULL;
 TextLayer *noise_layer = NULL;
-TextLayer *bgi_layer = NULL;
+TextLayer *cell_signal_layer = NULL;
+TextLayer *wifi_signal_layer = NULL;
 
 BitmapLayer *icon_layer = NULL;
 BitmapLayer *cgmicon_layer = NULL;
@@ -37,7 +41,7 @@ static char date_app_text[] = "Wed 13 ";
 AppSync sync_cgm;  
 // CGM message is 57 bytes
 // Pebble needs additional 62 Bytes?!? Pad with additional 20 bytes
-static uint8_t sync_buffer_cgm[157];
+static uint8_t sync_buffer_cgm[170];
 
 // variables for timers and time
 AppTimer *timer_cgm = NULL;
@@ -53,12 +57,12 @@ const uint8_t BATTLEVEL_FORMATTED_SIZE = 8;
 // global variables for sync tuple functions
 // buffers have to be static and hardcoded
 static uint16_t current_icon;
-static uint16_t last_bg;
+static uint16_t last_bg = -1;
 static uint16_t last_raw_bg;
-static uint16_t last_bgi_value;
+static uint16_t last_wifi_signal_value;
 static uint8_t last_noise;
 static char noise_str[6];
-static int current_bg = 0;
+static int current_bg = -1;
 static int current_noise = 0;
 static bool currentBG_isMMOL = false;
 static uint16_t last_battlevel;
@@ -66,12 +70,13 @@ static uint16_t last_pbattlevel;
 static char last_iobvalue[6];
 static char last_cobvalue[6];
 static uint32_t current_cgm_time = 0;
+static uint32_t current_cgm_timeago = 0;
 static uint32_t current_app_time = 0;
 static char current_bg_delta[10];
-static int converted_bgDelta = 0;
 static char current_bg_str[6];
 static char raw_bg_str[6];
-static char bgi_str[6];
+static char cell_signal_str[7];
+static char wifi_signal_str[4];
 
 // global BG snooze timer
 static uint8_t lastAlertTime = 0;
@@ -137,30 +142,13 @@ static const uint16_t MIDHIGH_BG_MGDL = 170;
 static const uint16_t BIGHIGH_BG_MGDL = 220;
 static const uint16_t SHOWHIGH_BG_MGDL = 400;
 
-// BG Ranges, MMOL
-// VALUES ARE IN INT, NOT FLOATING POINT, LAST DIGIT IS DECIMAL
-// FOR EXAMPLE : SPECVALUE IS 1.1, BIGHIGH IS 16.6
-// ALWAYS USE ONE AND ONLY ONE DECIMAL POINT FOR LAST DIGIT
-// GOOD : 5.0, 12.2 // BAD : 7 , 14.44
-static const uint16_t SPECVALUE_BG_MMOL = 11;
-static const uint16_t SHOWLOW_BG_MMOL = 22;
-static const uint16_t HYPOLOW_BG_MMOL = 31;
-static const uint16_t BIGLOW_BG_MMOL = 33;
-static const uint16_t MIDLOW_BG_MMOL = 40;
-static const uint16_t LOW_BG_MMOL = 44;
-
-static const uint16_t HIGH_BG_MMOL = 120;
-static const uint16_t MIDHIGH_BG_MMOL = 135;
-static const uint16_t BIGHIGH_BG_MMOL = 150;
-static const uint16_t SHOWHIGH_BG_MMOL = 220;
-
 // BG Snooze Times, in Minutes; controls when vibrate again
 // RANGE 0-240
 static const uint8_t SPECVALUE_SNZ_MIN = 30;
-static const uint8_t HYPOLOW_SNZ_MIN = 5;
-static const uint8_t BIGLOW_SNZ_MIN = 5;
-static const uint8_t MIDLOW_SNZ_MIN = 10;
-static const uint8_t LOW_SNZ_MIN = 15;
+static const uint8_t HYPOLOW_SNZ_MIN = 10;
+static const uint8_t BIGLOW_SNZ_MIN = 10;
+static const uint8_t MIDLOW_SNZ_MIN = 15;
+static const uint8_t LOW_SNZ_MIN = 30;
 static const uint8_t HIGH_SNZ_MIN = 30;
 static const uint8_t MIDHIGH_SNZ_MIN = 30;
 static const uint8_t BIGHIGH_SNZ_MIN = 30;
@@ -226,11 +214,8 @@ enum CgmKey {
   CGM_COB_KEY = 0x9,		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT COB VALUE, 99.9)
   CGM_RAW_BG_KEY = 0xA,		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT RAW BG VALUE, 99.9)
   CGM_NOISE_KEY = 0xB,		// TUPLE_CSTRING, MAX 2 BYTES (CURRENT NOISE LEVEL)
-  CGM_BGI_KEY = 0xC		// TUPLE_CSTRING, MAX 2 BYTES (CURRENT NOISE LEVEL)
-//  LOW_LOW_ALARM_KEY = 0xC,		// TUPLE_CSTRING, MAX 2 BYTES (LOW LOW ALARM LEVEL)
-//  LOW_ALARM_KEY = 0xD,		// TUPLE_CSTRING, MAX 2 BYTES (LOW ALARM LEVEL)
-//  HIGH_ALARM_KEY = 0xE,		// TUPLE_CSTRING, MAX 2 BYTES (HIGH ALARM LEVEL)
-//  HIGH_HIGH_ALARM_KEY = 0xF		// TUPLE_CSTRING, MAX 2 BYTES (HIGH HIGH ALARM LEVEL)
+  CGM_CELL_SIGNAL_KEY = 0xC,		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT CELL SIGNAL LEVEL)
+  CGM_WIFI_SIGNAL_KEY = 0xD		// TUPLE_CSTRING, MAX 4 BYTES (CURRENT WIFI SIGNAL LEVEL)
 }; 
 // TOTAL MESSAGE DATA 4x3+2+5+3+9 = 31 BYTES
 // TOTAL KEY HEADER DATA (STRINGS) 4x6+2 = 26 BYTES
@@ -276,7 +261,7 @@ static const uint8_t RCVROFF_ICON_INDX = 4;
 
 static char *translate_app_error(AppMessageResult result) {
   switch (result) {
-	case APP_MSG_OK: return "APP_MSG_OK";
+  	case APP_MSG_OK: return "APP_MSG_OK";
     case APP_MSG_SEND_TIMEOUT: return "APP_MSG_SEND_TIMEOUT";
     case APP_MSG_SEND_REJECTED: return "APP_MSG_SEND_REJECTED";
     case APP_MSG_NOT_CONNECTED: return "APP_MSG_NOT_CONNECTED";
@@ -468,9 +453,9 @@ static void battery_handler(BatteryChargeState charge_state) {
 
 	static char watch_battlevel_percent[9];
 	#ifdef PBL_COLOR
-	snprintf(watch_battlevel_percent, BATTLEVEL_FORMATTED_SIZE, "W:%i%% ", charge_state.charge_percent);
+	snprintf(watch_battlevel_percent, BATTLEVEL_FORMATTED_SIZE, "%i%% ", charge_state.charge_percent);
 	#else
-	snprintf(watch_battlevel_percent, BATTLEVEL_FORMATTED_SIZE, "W:%i%%", charge_state.charge_percent);
+	snprintf(watch_battlevel_percent, BATTLEVEL_FORMATTED_SIZE, "%i%%", charge_state.charge_percent);
 	#endif
 	text_layer_set_text(battery_layer, watch_battlevel_percent);
 	if(charge_state.is_charging) {
@@ -502,9 +487,9 @@ static void battery_handler(BatteryChargeState charge_state) {
 		text_layer_set_text_color(battery_layer, GColorWhite);
 		text_layer_set_background_color(battery_layer, GColorClear);
 		#endif
-	}	
-
-} // end battery_handler
+	}
+}
+// end battery_handler
 
 static void alert_handler_cgm(uint8_t alertValue) {
 	//APP_LOG(APP_LOG_LEVEL_INFO, "ALERT HANDLER");
@@ -515,14 +500,14 @@ static void alert_handler_cgm(uint8_t alertValue) {
 	// Vibe pattern: ON, OFF, ON, OFF; ON for 500ms, OFF for 100ms, ON for 100ms; 
 	
 	// CURRENT PATTERNS
-	const uint32_t highalert_fast[] = { 300,100,50,100,300,100,50,100,300,100,50,100,300,100,50,100,300,100,50,100,300,100,50,100,300,100,50,100,300,100,50,100,300 };
-	const uint32_t lowalert_beebuzz[] = { 75,50,50,50,75,50,50,50,75,50,50,50,75,50,50,50,75,50,50,50,75,50,50,50,75 };
+	const uint32_t highalert_fast[] = { 300,100,50,100,300,100,50,100,300,100,50,100,300,100,50,100,300 };
+	const uint32_t lowalert_beebuzz[] = { 100,50,50,50,100,50,50,50,100,50,50,50,100,50,50,50 };
 	
 	// PATTERN DURATION
-	const uint8_t HIGHALERT_FAST_STRONG = 33;
-	const uint8_t HIGHALERT_FAST_SHORT = (33/2);
-	const uint8_t LOWALERT_BEEBUZZ_STRONG = 25;
-	const uint8_t LOWALERT_BEEBUZZ_SHORT = (25/2);
+	const uint8_t HIGHALERT_FAST_STRONG = 17;
+	const uint8_t HIGHALERT_FAST_SHORT = (17/2);
+	const uint8_t LOWALERT_BEEBUZZ_STRONG = 16;
+	const uint8_t LOWALERT_BEEBUZZ_SHORT = (16/2);
 	
 	// CODE START
 	
@@ -1065,7 +1050,7 @@ static void load_bg() {
 	uint16_t *bg_ptr = NULL;
 	uint8_t *specvalue_ptr = NULL;
 	
-  char *str;
+  //char *str;
   
 	// CODE START
 	
@@ -1079,7 +1064,7 @@ static void load_bg() {
 
     // see if we're doing MGDL or MMOL; get currentBG_isMMOL value in myBGAtoi
 	// convert BG value from string to int
-    //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BG, BGATOI IN, CURRENT_BG: %d LAST_BG: %s ", current_bg, last_bg);
+  //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BG, BGATOI IN, CURRENT_BG: %d LAST_BG: %d ", current_bg, last_bg);
   current_bg = last_bg;
     //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BG, BG ATOI OUT, CURRENT_BG: %d LAST_BG: %s ", current_bg, last_bg);
     
@@ -1222,8 +1207,8 @@ static void load_bg() {
       
 	  // check for HYPO LOW BG and not SPECIAL VALUE
       else if ( ( ((current_bg > bg_ptr[SPECVALUE_BG_INDX]) && (current_bg <= bg_ptr[HYPOLOW_BG_INDX])) 
-             && ((lastAlertTime == 0) || (lastAlertTime == HYPOLOW_SNZ_MIN)) ) 
-           || ( ((current_bg > bg_ptr[SPECVALUE_BG_INDX]) && (current_bg <= bg_ptr[HYPOLOW_BG_INDX])) && (!hypolow_overwrite) ) ) {
+             && ((lastAlertTime == 0) || (lastAlertTime == HYPOLOW_SNZ_MIN)) && (current_bg > 0)) 
+           || ( ((current_bg > bg_ptr[SPECVALUE_BG_INDX]) && (current_bg <= bg_ptr[HYPOLOW_BG_INDX])) && (!hypolow_overwrite) && (current_bg > 0)) ) {
       
         //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, HYPO LOW BG ALERT");
         //APP_LOG(APP_LOG_LEVEL_DEBUG, "lastAlertTime HYPO LOW SNOOZE VALUE IN: %i", lastAlertTime);
@@ -1231,7 +1216,9 @@ static void load_bg() {
       
         // send alert and handle a bouncing connection
         if ((lastAlertTime == 0) || (!hypolow_overwrite)) { 
-		  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, HYPO LOW: VIBRATE");
+		      APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG, HYPO LOW: VIBRATE");
+          APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG current_bg: %i", current_bg);
+          APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG last_bg: %i", last_bg);
           alert_handler_cgm(HYPOLOWBG_VIBE);
           if (lastAlertTime == 0) { lastAlertTime = 1; }
           if (!hypolow_overwrite) { hypolow_overwrite = true; }
@@ -1473,7 +1460,7 @@ static void load_noise() {
 
 } // end load_pbg
 
-static void load_bgi() {
+static void load_cell_signal() {
     //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD PBG, FUNCTION START");
 
  	  // CODE START
@@ -1481,27 +1468,43 @@ static void load_bgi() {
     // Set text 
     //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BGI, SET TO BGI: %d ", last_bgi_value);
 	  //text_layer_set_text(bgi_layer, itoa(last_bgi_value));
-    snprintf(bgi_str, sizeof(bgi_str), "%d", last_bgi_value);
-    text_layer_set_text(bgi_layer, bgi_str);
+    //snprintf(cell_signal_str, sizeof(cell_signal_str), "%d", last_cell_signal_value);
+    text_layer_set_text(cell_signal_layer, cell_signal_str);
     //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BGI, SET TO BGI: %s ", itoa(last_bgi_value));
 
 } // end load_pbg
+
+static void load_wifi_signal() {
+    //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD WIFI SIGNAL, FUNCTION START");
+
+ 	  // CODE START
+	
+    // Set text 
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD WIFI SIGNAL, NEW WIFI SIGNAL: %s", wifi_signal_str);
+    //snprintf(wifi_signal_str, sizeof(wifi_signal_str), "%d", last_wifi_signal_value);
+    text_layer_set_text(wifi_signal_layer, wifi_signal_str);
+
+} // end load_wifi_signal
 
 static void load_cgmtime() {
     //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD CGMTIME FUNCTION START");
 	
 	// VARIABLES
 	// NOTE: buffers have to be static and hardcoded
-	uint32_t current_cgm_timeago = 0;
+  
+  persist_write_int(PERSIST_CGM_TIME, current_cgm_time); 
+  current_cgm_timeago = persist_read_int(WORKER_CGM_TIME); 
+  
 	int cgm_timeago_diff = 0;
 	static char formatted_cgm_timeago[10];
 	static char cgm_label_buffer[6];	
+  uint32_t time_now = time(NULL);
+  current_cgm_timeago = abs(time_now - current_cgm_time);
     
 	// CODE START
-	
     // initialize label buffer
     strncpy(cgm_label_buffer, "", LABEL_BUFFER_SIZE);
-       
+    
     //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD CGMTIME, NEW CGM TIME: %s", new_cgm_time);
     
     if (current_cgm_time == 0) {     
@@ -1519,8 +1522,10 @@ static void load_cgmtime() {
       //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD CGMTIME, CURRENT CGM TIME: %lu", current_cgm_time);
       //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD CGMTIME, TIME NOW IN CGM: %lu", time_now);
         
-      current_cgm_timeago = abs(time_now - current_cgm_time);
+      //current_cgm_timeago = abs(time_now - current_cgm_time);
         
+      
+      //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD CGMTIME, CURRENT CGM TIME: %lu", current_cgm_time);
       //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD CGMTIME, CURRENT CGM TIMEAGO: %lu", current_cgm_timeago);
       
       //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD CGMTIME, GM TIME AGO LABEL IN: %s", cgm_label_buffer);
@@ -1573,8 +1578,8 @@ static void load_cgmtime() {
         CGMOffAlert = false;
       }		
     } // else init code
-    
-    //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD CGMTIME, CGM TIMEAGO LABEL OUT: %s", cgm_label_buffer);
+
+  //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD CGMTIME, CGM TIMEAGO LABEL OUT: %s", cgm_label_buffer);
 } // end load_cgmtime
 
 static void load_apptime(){
@@ -1675,12 +1680,12 @@ static void load_bg_delta() {
 	
 	// CONSTANTS
 	const uint8_t MSGLAYER_BUFFER_SIZE = 14;
-	const uint8_t BGDELTA_LABEL_SIZE = 14;
-	const uint8_t BGDELTA_FORMATTED_SIZE = 14;
+	//const uint8_t BGDELTA_LABEL_SIZE = 14;
+	//const uint8_t BGDELTA_FORMATTED_SIZE = 14;
 	
 	// VARIABLES
 	// NOTE: buffers have to be static and hardcoded
-	static char delta_label_buffer[14];
+	//static char delta_label_buffer[14];
 	static char formatted_bg_delta[14];
 	
 	// CODE START
@@ -1722,27 +1727,10 @@ static void load_bg_delta() {
       specvalue_alert = false;
       return;	
     }
- 
-	// check for zero delta here; if get later then we know we have an error instead
-    if (strcmp(current_bg_delta, "0") == 0) {
-      strncpy(formatted_bg_delta, "0", BGDELTA_FORMATTED_SIZE);
-      strncpy(delta_label_buffer, " mg/dL", BGDELTA_LABEL_SIZE);
-	  strcat(formatted_bg_delta, delta_label_buffer);
-      text_layer_set_text(message_layer, formatted_bg_delta);
-      return;	
-    }
-  
-    if (strcmp(current_bg_delta, "0.0") == 0) {
-      strncpy(formatted_bg_delta, "0.0", BGDELTA_FORMATTED_SIZE);
-      strncpy(delta_label_buffer, " mmol", BGDELTA_LABEL_SIZE);
-	  strcat(formatted_bg_delta, delta_label_buffer);
-      text_layer_set_text(message_layer, formatted_bg_delta);
-      return;	
-    }
-  
+   
 	// check to see if we have MG/DL or MMOL
 	// get currentBG_isMMOL in myBGAtoi
-	converted_bgDelta = myBGAtoi(current_bg_delta);
+	//converted_bgDelta = myBGAtoi(current_bg_delta);
  
 	// Bluetooth is good, Phone is good, CGM connection is good, no special message 
 	// set delta BG message
@@ -1754,35 +1742,35 @@ static void load_bg_delta() {
  //     return;
  //   }
   
-    //APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BG DELTA, DELTA STRING: %s", &current_bg_delta[i]);
-    if (!currentBG_isMMOL) {
+//    APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD BG DELTA, DELTA STRING: %s", current_bg_delta);
+    //if (!currentBG_isMMOL) {
 	  // set mg/dL string
 	  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG DELTA: FOUND MG/DL, SET STRING");
-	    if (converted_bgDelta >= 100) {
+	    //if (converted_bgDelta >= 100) {
 		  // bg delta too big, set zero instead
-	      strncpy(formatted_bg_delta, "0", BGDELTA_FORMATTED_SIZE);
-	    }
-	    else {
-	      strncpy(formatted_bg_delta, current_bg_delta, BGDELTA_FORMATTED_SIZE);
-	    }
-	    strncpy(delta_label_buffer, " mg/dL", BGDELTA_LABEL_SIZE);
-	    strcat(formatted_bg_delta, delta_label_buffer);
-	}
-	else {
+	      //strncpy(formatted_bg_delta, "0", BGDELTA_FORMATTED_SIZE);
+	    //}
+	    //else {
+	      //strncpy(formatted_bg_delta, current_bg_delta, BGDELTA_FORMATTED_SIZE);
+	    //}
+	    //strncpy(delta_label_buffer, " mg/dL", BGDELTA_LABEL_SIZE);
+	    //strcat(formatted_bg_delta, delta_label_buffer);
+	//}
+	//else {
 	  // set mmol string
 	  //APP_LOG(APP_LOG_LEVEL_INFO, "LOAD BG DELTA: FOUND MMOL, SET STRING");
-	  if (converted_bgDelta >= 55) {
+	  //if (converted_bgDelta >= 55) {
 	    // bg delta too big, set zero instead
-	    strncpy(formatted_bg_delta, "0.0", BGDELTA_FORMATTED_SIZE);
-	  }
-	  else {
-	    strncpy(formatted_bg_delta, current_bg_delta, BGDELTA_FORMATTED_SIZE);
-	  }
-	  strncpy(delta_label_buffer, " mmol", BGDELTA_LABEL_SIZE);
-	  strcat(formatted_bg_delta, delta_label_buffer);
-	}
+	    //strncpy(formatted_bg_delta, "0.0", BGDELTA_FORMATTED_SIZE);
+	  //}
+	  //else {
+	    //strncpy(formatted_bg_delta, current_bg_delta, BGDELTA_FORMATTED_SIZE);
+	  //}
+	  //strncpy(delta_label_buffer, " mmol", BGDELTA_LABEL_SIZE);
+	  //strcat(formatted_bg_delta, delta_label_buffer);
+	//}
 	
-	text_layer_set_text(message_layer, formatted_bg_delta);
+	text_layer_set_text(message_layer, current_bg_delta);
 	
 } // end load_bg_delta
 
@@ -1872,16 +1860,15 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
 	
 	// CONSTANTS
 	const uint8_t BG_MSGSTR_SIZE = 6;
-  //const uint8_t BGI_MSGSTR_SIZE = 16;
-	const uint8_t BGDELTA_MSGSTR_SIZE = 6;
-	//const uint8_t BATTLEVEL_MSGSTR_SIZE = 4;
+	const uint8_t BGDELTA_MSGSTR_SIZE = 10;
   const uint8_t NOISE_MSGSTR_SIZE = 6;
-  const uint8_t NOISE_STR_SIZE = 1;
+  const uint8_t CELL_MSGSTR_SIZE = 7;
+  const uint8_t WIFI_MSGSTR_SIZE = 4;
 
 	// CODE START
 	
 	switch (key) {
-
+  
 	case CGM_ICON_KEY:;
       //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: ICON ARROW");
       current_icon = new_tuple->value->uint16;
@@ -1909,6 +1896,7 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
 	case CGM_DLTA_KEY:;
    	  //APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: BG DELTA");
   	  strncpy(current_bg_delta, new_tuple->value->cstring, BGDELTA_MSGSTR_SIZE);
+//      APP_LOG(APP_LOG_LEVEL_INFO, "current_bg_delta: %s", current_bg_delta);
 	    load_bg_delta();
 	    break; // break for CGM_DLTA_KEY
 	
@@ -1980,19 +1968,25 @@ void sync_tuple_changed_callback_cgm(const uint32_t key, const Tuple* new_tuple,
         strncpy(noise_str, "ERR", NOISE_MSGSTR_SIZE);}
       load_noise();
       break; // break for CGM_PBG_KEY        
-    
-      case CGM_BGI_KEY:;
-      last_bgi_value = new_tuple->value->uint32;
-      load_bgi();
+      
+    case CGM_CELL_SIGNAL_KEY:;
+      strncpy(cell_signal_str, new_tuple->value->cstring, CELL_MSGSTR_SIZE);
+      load_cell_signal();
       break; // break for CGM_PBG_KEY   
     
+    case CGM_WIFI_SIGNAL_KEY:;
+      APP_LOG(APP_LOG_LEVEL_INFO, "SYNC TUPLE: WIFI SIGNAL VALUE");
+      strncpy(wifi_signal_str, new_tuple->value->cstring, WIFI_MSGSTR_SIZE);
+      load_wifi_signal();
+      break; // break for CGM_PBG_KEY  
   }  // end switch(key)
 
 } // end sync_tuple_changed_callback_cgm()
 
 static void send_cmd_cgm(void) {
   
-  DictionaryIterator *iter = NULL;
+//  DictionaryIterator *iter = NULL;
+  DictionaryIterator *iter;
   AppMessageResult sendcmd_openerr = APP_MSG_OK;
   AppMessageResult sendcmd_senderr = APP_MSG_OK;
   
@@ -2071,7 +2065,9 @@ void handle_minute_tick_cgm(struct tm* tick_time_cgm, TimeUnits units_changed_cg
 	    }
     }
   
-    handle_battery(battery_state_service_peek());  
+  handle_battery(battery_state_service_peek());  
+  
+  load_cgmtime();
   
 } // end handle_minute_tick_cgm
 
@@ -2094,7 +2090,7 @@ void window_load_cgm(Window *window_cgm) {
   layer_add_child(window_layer_cgm, text_layer_get_layer(tophalf_layer));
   
   // DELTA BG
-  message_layer = text_layer_create(GRect(45, 28, 99, 55));
+  message_layer = text_layer_create(GRect(40, 28, 99, 55));
   text_layer_set_text_color(message_layer, GColorBlack);
   text_layer_set_background_color(message_layer, GColorClear);
   text_layer_set_font(message_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
@@ -2147,15 +2143,6 @@ void window_load_cgm(Window *window_cgm) {
   text_layer_set_text(noise_layer, "Clean");
   layer_add_child(window_layer_cgm, text_layer_get_layer(noise_layer));
     
-  // BGI VALUE
-  bgi_layer = text_layer_create(GRect(0, 37, 100, 19));
-  text_layer_set_text_color(bgi_layer, GColorBlack);
-  text_layer_set_background_color(bgi_layer, GColorClear);
-  text_layer_set_font(bgi_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-  text_layer_set_text_alignment(bgi_layer, GTextAlignmentLeft);
-  text_layer_set_text(bgi_layer, "BGI: 000");
-  layer_add_child(window_layer_cgm, text_layer_get_layer(bgi_layer));
-  
   // CGM TIME AGO ICON
   cgmicon_layer = bitmap_layer_create(GRect(5, 59, 40, 24));
   bitmap_layer_set_alignment(cgmicon_layer, GAlignLeft);
@@ -2214,6 +2201,15 @@ void window_load_cgm(Window *window_cgm) {
   text_layer_set_text(phone_battery_layer, "0%");
   layer_add_child(window_layer_cgm, text_layer_get_layer(phone_battery_layer));
   
+  // CURRENT COB VALUE
+  current_cob_layer = text_layer_create(GRect(0, 130, 51, 20));
+  text_layer_set_text_color(current_cob_layer, GColorWhite);
+  text_layer_set_background_color(current_cob_layer, GColorClear);
+  text_layer_set_font(current_cob_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+  text_layer_set_text_alignment(current_cob_layer, GTextAlignmentLeft);
+  text_layer_set_text(current_cob_layer, "0.0g");
+  layer_add_child(window_layer_cgm, text_layer_get_layer(current_cob_layer));
+  
   // CURRENT IOB VALUE
   current_iob_layer = text_layer_create(GRect(0, 145, 51, 20));
   text_layer_set_text_color(current_iob_layer, GColorWhite);
@@ -2222,21 +2218,30 @@ void window_load_cgm(Window *window_cgm) {
   text_layer_set_text_alignment(current_iob_layer, GTextAlignmentLeft);
   text_layer_set_text(current_iob_layer, "0.0U");
   layer_add_child(window_layer_cgm, text_layer_get_layer(current_iob_layer));
-  
-    // CURRENT COB VALUE
-  current_cob_layer = text_layer_create(GRect(0, 130, 51, 20));
-  text_layer_set_text_color(current_cob_layer, GColorWhite);
-  text_layer_set_background_color(current_cob_layer, GColorClear);
-  text_layer_set_font(current_cob_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-  text_layer_set_text_alignment(current_cob_layer, GTextAlignmentLeft);
-  text_layer_set_text(current_cob_layer, "0.0g");
-  layer_add_child(window_layer_cgm, text_layer_get_layer(current_cob_layer));
 
+  // WIFI SIGNAL VALUE
+  wifi_signal_layer = text_layer_create(GRect(90, 130, 51, 20));
+  text_layer_set_text_color(wifi_signal_layer, GColorWhite);
+  text_layer_set_background_color(wifi_signal_layer, GColorClear);
+  text_layer_set_font(wifi_signal_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+  text_layer_set_text_alignment(wifi_signal_layer, GTextAlignmentRight);
+  text_layer_set_text(wifi_signal_layer, "0");
+  layer_add_child(window_layer_cgm, text_layer_get_layer(wifi_signal_layer));  
+  
+  // CELL SIGNAL VALUE
+  cell_signal_layer = text_layer_create(GRect(90, 145, 51, 20));
+  text_layer_set_text_color(cell_signal_layer, GColorWhite);
+  text_layer_set_background_color(cell_signal_layer, GColorClear);
+  text_layer_set_font(cell_signal_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+  text_layer_set_text_alignment(cell_signal_layer, GTextAlignmentRight);
+  text_layer_set_text(cell_signal_layer, "0 CDMA");
+  layer_add_child(window_layer_cgm, text_layer_get_layer(cell_signal_layer));
+  
   // put " " (space) in bg field so logo continues to show
   // " " (space) also shows these are init values, not bad or null values
   Tuplet initial_values_cgm[] = {
   TupletCString(CGM_ICON_KEY, " "),
-	TupletCString(CGM_BG_KEY, " "),
+	TupletInteger(CGM_BG_KEY, 0),
 	TupletInteger(CGM_TCGM_KEY, 0),
 	TupletInteger(CGM_TAPP_KEY, 0),
 	TupletCString(CGM_DLTA_KEY, "LOAD"),
@@ -2247,7 +2252,8 @@ void window_load_cgm(Window *window_cgm) {
   TupletCString(CGM_COB_KEY, " "),
   TupletCString(CGM_RAW_BG_KEY, " "),
   TupletCString(CGM_NOISE_KEY, " "),
-  TupletCString(CGM_BGI_KEY, "BGI: 000")
+  TupletCString(CGM_CELL_SIGNAL_KEY, "000"),
+  TupletCString(CGM_WIFI_SIGNAL_KEY, "WNC")
   };
   
   //APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW LOAD, ABOUT TO CALL APP SYNC INIT");
@@ -2295,7 +2301,7 @@ void window_unload_cgm(Window *window_cgm) {
   destroy_null_TextLayer(&current_cob_layer);
   destroy_null_TextLayer(&raw_bg_layer);
   destroy_null_TextLayer(&noise_layer);
-  destroy_null_TextLayer(&bgi_layer);
+  destroy_null_TextLayer(&cell_signal_layer);
   
   //APP_LOG(APP_LOG_LEVEL_INFO, "WINDOW UNLOAD OUT");
 } // end window_unload_cgm
@@ -2320,9 +2326,9 @@ static void init_cgm(void) {
 	// create the windows
 	window_cgm = window_create();
 	window_set_background_color(window_cgm, GColorBlack);
-	#ifdef PBL_SDK_2
-	window_set_fullscreen(window_cgm, true);
-	#endif
+//	#ifdef PBL_SDK_2
+//	window_set_fullscreen(window_cgm, true);
+//	#endif
 	window_set_window_handlers(window_cgm, (WindowHandlers) {
 		.load = window_load_cgm,
 		.unload = window_unload_cgm	
@@ -2332,8 +2338,8 @@ static void init_cgm(void) {
 	app_message_register_inbox_dropped(inbox_dropped_handler_cgm);
 	app_message_register_outbox_failed(outbox_failed_handler_cgm);
 	
-	//APP_LOG(APP_LOG_LEVEL_INFO, "INIT CODE, ABOUT TO CALL APP MSG OPEN"); 
-	app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
+	APP_LOG(APP_LOG_LEVEL_INFO, "INIT CODE, ABOUT TO CALL APP MSG OPEN"); 
+	app_message_open(2026, 2026);
 	//APP_LOG(APP_LOG_LEVEL_INFO, "INIT CODE, APP MSG OPEN DONE");
 	
 	const bool animated_cgm = true;
